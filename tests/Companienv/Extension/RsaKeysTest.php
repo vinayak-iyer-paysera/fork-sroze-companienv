@@ -22,6 +22,8 @@ final class RsaKeysTest extends TestCase
     private const CONFIRMATION = 'Variables KEY_PATH and PUB_PATH and KEY_PASS represents an RSA public/private key. '
         . 'Do you want to automatically generate them? (y)';
     private const PASS_PHRASE_QUESTION = 'Enter pass phrase to protect the keys:';
+    private const SHORT_PASS_PHRASE_QUESTION = 'The pass phrase must have at least 4 characters. '
+        . self::PASS_PHRASE_QUESTION;
 
     protected function setUp(): void
     {
@@ -75,10 +77,12 @@ final class RsaKeysTest extends TestCase
 
     /**
      * @dataProvider passPhraseDataProvider
+     *
+     * @param array<string, string|list<string>> $passPhraseAnswers
      */
-    public function testGeneratedKeyPair(string $passPhrase): void
+    public function testGeneratedKeyPair(array $passPhraseAnswers, string $passPhrase, string $expectedQuestions): void
     {
-        $interaction = new InMemoryInteraction([self::CONFIRMATION => 'y', self::PASS_PHRASE_QUESTION => $passPhrase]);
+        $interaction = new InMemoryInteraction([self::CONFIRMATION => 'y'] + $passPhraseAnswers);
         $companion = $this->companion($interaction);
         $extension = new RsaKeys();
 
@@ -92,7 +96,7 @@ final class RsaKeysTest extends TestCase
         $this->assertSame(
             [
                 'values' => ['KEY_PATH' => 'private.pem', 'PUB_PATH' => 'public.pem', 'KEY_PASS' => $passPhrase],
-                'questions' => self::CONFIRMATION . "\n" . self::PASS_PHRASE_QUESTION . "\n",
+                'questions' => self::CONFIRMATION . "\n" . $expectedQuestions,
                 'files' => ['.env.dist', 'private.pem', 'public.pem'],
                 'opens with a wrong pass phrase' => false,
                 'bits' => 4096,
@@ -110,13 +114,31 @@ final class RsaKeysTest extends TestCase
     }
 
     /**
-     * @return array<string, array{0: string}>
+     * @return array<string, array{0: array<string, string|list<string>>, 1: string, 2: string}>
      */
     public static function passPhraseDataProvider(): array
     {
         return [
-            'plain pass phrase' => ['secret-phrase'],
-            'pass phrase with spaces and quotes' => ['it\'s my "secret" phrase'],
+            'plain pass phrase' => [
+                [self::PASS_PHRASE_QUESTION => 'secret-phrase'],
+                'secret-phrase',
+                self::PASS_PHRASE_QUESTION . "\n",
+            ],
+            'pass phrase with spaces and quotes' => [
+                [self::PASS_PHRASE_QUESTION => 'it\'s my "secret" phrase'],
+                'it\'s my "secret" phrase',
+                self::PASS_PHRASE_QUESTION . "\n",
+            ],
+            'pass phrase of 4 characters' => [
+                [self::PASS_PHRASE_QUESTION => 'abcd'],
+                'abcd',
+                self::PASS_PHRASE_QUESTION . "\n",
+            ],
+            'pass phrases shorter than 4 characters: asked again until one is long enough' => [
+                [self::PASS_PHRASE_QUESTION => 'abc', self::SHORT_PASS_PHRASE_QUESTION => ['ab', 'abcd']],
+                'abcd',
+                self::PASS_PHRASE_QUESTION . "\n" . str_repeat(self::SHORT_PASS_PHRASE_QUESTION . "\n", 2),
+            ],
         ];
     }
 

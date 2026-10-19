@@ -7,7 +7,7 @@ use RuntimeException;
 class InMemoryInteraction implements Interaction
 {
     /**
-     * A question-answer mapping.
+     * A question-answer mapping. A list of answers is served in order, one each time the question is asked.
      *
      * @var array
      */
@@ -31,7 +31,9 @@ class InMemoryInteraction implements Interaction
         $this->buffer .= trim(strip_tags($question))."\n";
 
         if (isset($this->answers[$normalizedKey])) {
-            return $this->answers[$normalizedKey];
+            return is_array($this->answers[$normalizedKey])
+                ? array_shift($this->answers[$normalizedKey])
+                : $this->answers[$normalizedKey];
         }
 
         throw new RuntimeException(sprintf(

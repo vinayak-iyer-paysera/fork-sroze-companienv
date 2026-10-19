@@ -12,6 +12,8 @@ use Symfony\Component\Process\Process;
 
 class RsaKeys implements Extension
 {
+    private const MINIMUM_PASS_PHRASE_LENGTH = 4;
+
     private $populatedVariables = [];
 
     /**
@@ -42,7 +44,7 @@ class RsaKeys implements Extension
         }
 
         $fileSystem = $companion->getFileSystem();
-        $passPhrase = $companion->ask('Enter pass phrase to protect the keys: ');
+        $passPhrase = $this->askPassPhrase($companion);
         $privateKeyPath = $block->getVariable($privateKeyVariableName = $attribute->getVariableNames()[0])->getValue();
         $publicKeyPath = $block->getVariable($publicKeyVariableName = $attribute->getVariableNames()[1])->getValue();
 
@@ -68,6 +70,19 @@ class RsaKeys implements Extension
         $this->populatedVariables[$attribute->getVariableNames()[2]] = $passPhrase;
 
         return $this->populatedVariables[$variable->getName()];
+    }
+
+    private function askPassPhrase(Companion $companion): string
+    {
+        $passPhrase = $companion->ask('Enter pass phrase to protect the keys: ');
+        while (strlen($passPhrase) < self::MINIMUM_PASS_PHRASE_LENGTH) {
+            $passPhrase = $companion->ask(sprintf(
+                'The pass phrase must have at least %d characters. Enter pass phrase to protect the keys: ',
+                self::MINIMUM_PASS_PHRASE_LENGTH
+            ));
+        }
+
+        return $passPhrase;
     }
 
     /**

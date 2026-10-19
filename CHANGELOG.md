@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `companienv` console command failed on Symfony 5 and later.
 - RSA key and SSL certificate generation failed with `symfony/process` 5 and later.
 - Declining RSA key or SSL certificate generation asked the same question again for the other variables of the pair.
+- An RSA pass phrase shorter than 4 characters made key generation fail with the openssl builds that refuse one, 1.1.1d among them. Such a pass phrase is now asked again.
 - A `#+file-to-propagate` file that existed was reported as missing configuration on every run.
 - Without interaction, a question with no default (the RSA pass phrase, the SSL domain name) failed with a `TypeError` in the Composer script and was asked again without end in the console command. It now fails with a `Companienv\IO\UnansweredQuestionException`, a `RuntimeException` that names the question.
 - Without interaction, a missing `#+file-to-propagate` file whose variable was not set failed with a `TypeError` in the Composer script and was asked for without end in the console command. Its path is now written and the file stays missing.
