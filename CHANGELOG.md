@@ -40,5 +40,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The domain name is escaped for openssl's subject syntax, so `/`, `+` and `\` in it no longer add subject fields or make openssl fail.
 - The RSA pass phrase is passed to openssl on standard input instead of the command line.
 - A value written to `.env` that contains `$(…)` is no longer run as a shell command when Dotenv reads the file, unless it is the variable's `.env.dist` default.
+- The `symfony/process` releases that CVE-2026-24739 (argument escaping under MSYS2 or Git Bash on Windows) lists for the 5.x, 6.4 and 7.4 lines are refused: 5.x before 5.4.51, 6.4 before 6.4.33 and 7.4 before 7.4.5. Symfony 3.4 and 4.4 have no fixed release, and their affected releases are still allowed.
 
 [Unreleased]: https://github.com/paysera/fork-sroze-companienv/compare/0.0.12...HEAD
