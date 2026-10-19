@@ -109,6 +109,18 @@ final class CompanionTest extends TestCase
                 "MY_VARIABLE='it'\"'\"'s C:\\new'\n",
                 ['MY_VARIABLE' => 'it\'s C:\\new'],
             ],
+            'value with a backslash before r' => [
+                "MY_VARIABLE=\n",
+                ['MY_VARIABLE ?' => 'C:\\run'],
+                "MY_VARIABLE='C:\\run'\n",
+                ['MY_VARIABLE' => 'C:\\run'],
+            ],
+            'value with a trailing escaped double quote' => [
+                "MY_VARIABLE=\n",
+                ['MY_VARIABLE ?' => 'x\\"'],
+                "MY_VARIABLE='x\\\"'\n",
+                ['MY_VARIABLE' => 'x\\"'],
+            ],
             'value with a single quote and a backslash before r' => [
                 "MY_VARIABLE=\n",
                 ['MY_VARIABLE ?' => 'it\'s C:\\run'],
@@ -159,9 +171,9 @@ final class CompanionTest extends TestCase
             ],
             'typed value with a command' => [
                 "MY_VARIABLE=\n",
-                ['MY_VARIABLE ?' => '$(echo injected)'],
-                "MY_VARIABLE='\$(echo injected)'\n",
-                ['MY_VARIABLE' => '$(echo injected)'],
+                ['MY_VARIABLE ?' => '$(pwd)'],
+                "MY_VARIABLE='\$(pwd)'\n",
+                ['MY_VARIABLE' => '$(pwd)'],
             ],
             'typed value with a command in double quotes' => [
                 "MY_VARIABLE=\n",
