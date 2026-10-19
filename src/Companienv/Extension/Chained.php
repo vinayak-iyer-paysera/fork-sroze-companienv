@@ -39,8 +39,12 @@ class Chained implements Extension
     /**
      * {@inheritdoc}
      */
-    public function isVariableRequiringValue(Companion $companion, Block $block, Variable $variable, ?string $currentValue = null) : int
-    {
+    public function isVariableRequiringValue(
+        Companion $companion,
+        Block $block,
+        Variable $variable,
+        ?string $currentValue = null
+    ) : int {
         foreach ($this->extensions as $extension) {
             if (($vote = $extension->isVariableRequiringValue($companion, $block, $variable, $currentValue)) != Extension::ABSTAIN) {
                 return $vote;

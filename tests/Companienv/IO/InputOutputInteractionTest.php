@@ -18,8 +18,13 @@ final class InputOutputInteractionTest extends TestCase
      * @param callable(InputOutputInteraction): (bool|string|null) $act
      * @param bool|string|array<string, string>|null $expectedResult
      */
-    public function testInteraction(bool $interactive, string $answers, callable $act, $expectedResult, string $expectedOutput): void
-    {
+    public function testInteraction(
+        bool $interactive,
+        string $answers,
+        callable $act,
+        $expectedResult,
+        string $expectedOutput
+    ): void {
         $inputStream = fopen('php://memory', 'r+');
         fwrite($inputStream, $answers);
         rewind($inputStream);

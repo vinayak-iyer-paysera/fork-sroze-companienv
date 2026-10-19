@@ -183,7 +183,12 @@ final class FileToPropagateTest extends TestCase
                 '',
                 Extension::ABSTAIN,
             ],
-            'empty value in .env, file absent at the reference path' => [self::block(), [], '', Extension::VARIABLE_REQUIRED],
+            'empty value in .env, file absent at the reference path' => [
+                self::block(),
+                [],
+                '',
+                Extension::VARIABLE_REQUIRED,
+            ],
         ];
     }
 

@@ -41,8 +41,12 @@ final class RsaKeysTest extends TestCase
      * @param array<string, string> $answers
      * @param list<string> $variableNames
      */
-    public function testNothingGenerated(Block $block, array $answers, array $variableNames, string $expectedQuestions): void
-    {
+    public function testNothingGenerated(
+        Block $block,
+        array $answers,
+        array $variableNames,
+        string $expectedQuestions
+    ): void {
         $interaction = new InMemoryInteraction($answers);
         $companion = $this->companion($interaction);
         $extension = new RsaKeys();
@@ -53,8 +57,16 @@ final class RsaKeysTest extends TestCase
         }
 
         $this->assertSame(
-            ['values' => array_fill_keys($variableNames, null), 'questions' => $expectedQuestions, 'files' => ['.env.dist']],
-            ['values' => $values, 'questions' => $interaction->getBuffer(), 'files' => array_keys($this->readTemporaryDirectory())]
+            [
+                'values' => array_fill_keys($variableNames, null),
+                'questions' => $expectedQuestions,
+                'files' => ['.env.dist'],
+            ],
+            [
+                'values' => $values,
+                'questions' => $interaction->getBuffer(),
+                'files' => array_keys($this->readTemporaryDirectory()),
+            ]
         );
     }
 
@@ -65,7 +77,12 @@ final class RsaKeysTest extends TestCase
     {
         return [
             'no rsa-pair attribute' => [new Block('Keys', '', self::variables()), [], ['KEY_PATH'], ''],
-            'generation declined' => [self::block(), [self::CONFIRMATION => ''], ['KEY_PATH'], self::CONFIRMATION . "\n"],
+            'generation declined' => [
+                self::block(),
+                [self::CONFIRMATION => ''],
+                ['KEY_PATH'],
+                self::CONFIRMATION . "\n",
+            ],
             'generation declined, then the rest of the pair' => [
                 self::block(),
                 [self::CONFIRMATION => ''],
@@ -152,7 +169,10 @@ final class RsaKeysTest extends TestCase
         $block = new Block('Keys', '', $variables, [
             new Attribute('rsa-pair', ['KEY_PATH', 'PUB_PATH', 'KEY_PASS'], []),
         ]);
-        $interaction = new InMemoryInteraction([self::CONFIRMATION => 'y', self::PASS_PHRASE_QUESTION => 'secret-phrase']);
+        $interaction = new InMemoryInteraction([
+            self::CONFIRMATION => 'y',
+            self::PASS_PHRASE_QUESTION => 'secret-phrase',
+        ]);
 
         $messages = [];
         try {
@@ -164,7 +184,11 @@ final class RsaKeysTest extends TestCase
         }
 
         $this->assertSame(
-            ['first message' => 'Could not have generated the RSA public/private key', 'errors' => 2, 'pass phrase in a message' => false],
+            [
+                'first message' => 'Could not have generated the RSA public/private key',
+                'errors' => 2,
+                'pass phrase in a message' => false,
+            ],
             [
                 'first message' => $messages[0] ?? null,
                 'errors' => count($messages),
@@ -186,7 +210,11 @@ final class RsaKeysTest extends TestCase
 
         $this->assertSame(
             $expected,
-            (new RsaKeys())->isVariableRequiringValue($this->companion(new InMemoryInteraction()), $block, new Variable('KEY_PATH', 'private.pem'))
+            (new RsaKeys())->isVariableRequiringValue(
+                $this->companion(new InMemoryInteraction()),
+                $block,
+                new Variable('KEY_PATH', 'private.pem')
+            )
         );
     }
 
@@ -209,12 +237,18 @@ final class RsaKeysTest extends TestCase
      */
     private static function variables(): array
     {
-        return [new Variable('KEY_PATH', 'private.pem'), new Variable('PUB_PATH', 'public.pem'), new Variable('KEY_PASS', '')];
+        return [
+            new Variable('KEY_PATH', 'private.pem'),
+            new Variable('PUB_PATH', 'public.pem'),
+            new Variable('KEY_PASS', ''),
+        ];
     }
 
     private static function block(): Block
     {
-        return new Block('Keys', '', self::variables(), [new Attribute('rsa-pair', ['KEY_PATH', 'PUB_PATH', 'KEY_PASS'], [])]);
+        return new Block('Keys', '', self::variables(), [
+            new Attribute('rsa-pair', ['KEY_PATH', 'PUB_PATH', 'KEY_PASS'], []),
+        ]);
     }
 
     private function companion(InMemoryInteraction $interaction): Companion

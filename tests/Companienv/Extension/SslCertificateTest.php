@@ -39,8 +39,12 @@ final class SslCertificateTest extends TestCase
      * @param array<string, string> $answers
      * @param list<string> $variableNames
      */
-    public function testNothingGenerated(Block $block, array $answers, array $variableNames, string $expectedQuestions): void
-    {
+    public function testNothingGenerated(
+        Block $block,
+        array $answers,
+        array $variableNames,
+        string $expectedQuestions
+    ): void {
         $interaction = new InMemoryInteraction($answers);
         $companion = $this->companion($interaction);
         $extension = new SslCertificate();
@@ -51,8 +55,16 @@ final class SslCertificateTest extends TestCase
         }
 
         $this->assertSame(
-            ['values' => array_fill_keys($variableNames, null), 'questions' => $expectedQuestions, 'files' => ['.env.dist']],
-            ['values' => $values, 'questions' => $interaction->getBuffer(), 'files' => array_keys($this->readTemporaryDirectory())]
+            [
+                'values' => array_fill_keys($variableNames, null),
+                'questions' => $expectedQuestions,
+                'files' => ['.env.dist'],
+            ],
+            [
+                'values' => $values,
+                'questions' => $interaction->getBuffer(),
+                'files' => array_keys($this->readTemporaryDirectory()),
+            ]
         );
     }
 
@@ -62,8 +74,18 @@ final class SslCertificateTest extends TestCase
     public static function nothingGeneratedDataProvider(): array
     {
         return [
-            'no ssl-certificate attribute' => [new Block('Certificate', '', self::variables()), [], ['CERT_KEY_PATH'], ''],
-            'generation declined' => [self::block(), [self::CONFIRMATION => ''], ['CERT_KEY_PATH'], self::CONFIRMATION . "\n"],
+            'no ssl-certificate attribute' => [
+                new Block('Certificate', '', self::variables()),
+                [],
+                ['CERT_KEY_PATH'],
+                '',
+            ],
+            'generation declined' => [
+                self::block(),
+                [self::CONFIRMATION => ''],
+                ['CERT_KEY_PATH'],
+                self::CONFIRMATION . "\n",
+            ],
             'generation declined, then the rest of the pair' => [
                 self::block(),
                 [self::CONFIRMATION => ''],
@@ -149,7 +171,10 @@ final class SslCertificateTest extends TestCase
         $this->expectExceptionMessage('Could not have generated the SSL certificate: The command');
 
         (new SslCertificate())->getVariableValue(
-            $this->companion(new InMemoryInteraction([self::CONFIRMATION => 'y', self::DOMAIN_QUESTION => 'localhost'])),
+            $this->companion(new InMemoryInteraction([
+                self::CONFIRMATION => 'y',
+                self::DOMAIN_QUESTION => 'localhost',
+            ])),
             $block,
             $variables[0]
         );
@@ -195,7 +220,11 @@ final class SslCertificateTest extends TestCase
      */
     private static function variables(): array
     {
-        return [new Variable('CERT_KEY_PATH', 'key.pem'), new Variable('CERT_PATH', 'certificate.pem'), new Variable('CERT_DOMAIN', '')];
+        return [
+            new Variable('CERT_KEY_PATH', 'key.pem'),
+            new Variable('CERT_PATH', 'certificate.pem'),
+            new Variable('CERT_DOMAIN', ''),
+        ];
     }
 
     private static function block(): Block

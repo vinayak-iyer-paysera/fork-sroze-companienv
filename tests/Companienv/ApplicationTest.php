@@ -53,7 +53,8 @@ final class ApplicationTest extends TestCase
             [
                 'exit code' => 0,
                 'files' => ['app.dist' => "## Something\nMY_VARIABLE=default-value\n", 'app.env' => $expectedEnv],
-                'output' => "It looks like you are missing some configuration (1 variables). I will help you to sort this out.\n"
+                'output' => "It looks like you are missing some configuration (1 variables). "
+                    . "I will help you to sort this out.\n"
                     . "\nSomething\n\n",
             ],
             ['exit code' => $exitCode, 'files' => $this->readTemporaryDirectory(), 'output' => $output->fetch()]

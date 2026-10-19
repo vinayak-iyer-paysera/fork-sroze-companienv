@@ -50,19 +50,34 @@ class RsaKeys implements Extension
 
         try {
             (new Process(
-                ['openssl', 'genrsa', '-out', $fileSystem->realpath($privateKeyPath), '-aes256', '-passout', 'stdin', '4096'],
+                [
+                    'openssl', 'genrsa',
+                    '-out', $fileSystem->realpath($privateKeyPath),
+                    '-aes256',
+                    '-passout', 'stdin',
+                    '4096',
+                ],
                 null,
                 null,
                 $passPhrase
             ))->mustRun();
             (new Process(
-                ['openssl', 'rsa', '-pubout', '-in', $fileSystem->realpath($privateKeyPath), '-out', $fileSystem->realpath($publicKeyPath), '-passin', 'stdin'],
+                [
+                    'openssl', 'rsa', '-pubout',
+                    '-in', $fileSystem->realpath($privateKeyPath),
+                    '-out', $fileSystem->realpath($publicKeyPath),
+                    '-passin', 'stdin',
+                ],
                 null,
                 null,
                 $passPhrase
             ))->mustRun();
         } catch (ProcessRuntimeException $exception) {
-            throw new RuntimeException('Could not have generated the RSA public/private key', $exception->getCode(), $exception);
+            throw new RuntimeException(
+                'Could not have generated the RSA public/private key',
+                $exception->getCode(),
+                $exception
+            );
         }
 
         $this->populatedVariables[$privateKeyVariableName] = $privateKeyPath;
@@ -88,8 +103,12 @@ class RsaKeys implements Extension
     /**
      * {@inheritdoc}
      */
-    public function isVariableRequiringValue(Companion $companion, Block $block, Variable $variable, ?string $currentValue = null) : int
-    {
+    public function isVariableRequiringValue(
+        Companion $companion,
+        Block $block,
+        Variable $variable,
+        ?string $currentValue = null
+    ) : int {
         if (null === ($attribute = $block->getAttribute('rsa-pair', $variable))) {
             return Extension::ABSTAIN;
         }

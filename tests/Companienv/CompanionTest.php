@@ -29,7 +29,10 @@ final class CompanionTest extends TestCase
 
         $this->assertSame(
             ['.env' => $expectedEnv, 'output' => $expectedOutput],
-            ['.env' => $fileSystem->exists('.env') ? $fileSystem->getContents('.env') : null, 'output' => $interaction->getBuffer()]
+            [
+                '.env' => $fileSystem->exists('.env') ? $fileSystem->getContents('.env') : null,
+                'output' => $interaction->getBuffer(),
+            ]
         );
     }
 
@@ -219,16 +222,22 @@ final class CompanionTest extends TestCase
      */
     public static function fillGapsDataProvider(): array
     {
-        $missingOne = "It looks like you are missing some configuration (1 variables). I will help you to sort this out.\n"
+        $missingOne = "It looks like you are missing some configuration (1 variables). "
+            . "I will help you to sort this out.\n"
             . "Let's fix this? (y)\n";
 
         return [
             'no env file: every variable is asked and written' => [
                 ['.env.dist' => "## Something\n# With more details\nMY_VARIABLE=default-value\nOTHER_VARIABLE=\n"],
-                ["Let's fix this? (y)" => 'y', 'MY_VARIABLE ? (default-value)' => 'my-value', 'OTHER_VARIABLE ?' => 'other-value'],
+                [
+                    "Let's fix this? (y)" => 'y',
+                    'MY_VARIABLE ? (default-value)' => 'my-value',
+                    'OTHER_VARIABLE ?' => 'other-value',
+                ],
                 "MY_VARIABLE=my-value\nOTHER_VARIABLE=other-value\n",
                 "It looks like you are missing some configuration (2 variables). I will help you to sort this out.\n"
-                . "Let's fix this? (y)\n\n<info>Something</info>\nWith more details\n\nMY_VARIABLE ? (default-value)\nOTHER_VARIABLE ?\n",
+                . "Let's fix this? (y)\n\n<info>Something</info>\nWith more details\n\n"
+                . "MY_VARIABLE ? (default-value)\nOTHER_VARIABLE ?\n",
             ],
             'env file: only the missing variable is asked and appended' => [
                 [
@@ -370,7 +379,8 @@ final class CompanionTest extends TestCase
                 ['.env.dist' => "MY_VARIABLE=default-value\n"],
                 ["Let's fix this? (y)" => ''],
                 null,
-                $missingOne . "\n<comment>I let you think about it then. Re-run the command to get started again.</comment>\n\n",
+                $missingOne . "\n<comment>I let you think about it then. "
+                    . "Re-run the command to get started again.</comment>\n\n",
             ],
         ];
     }
@@ -409,7 +419,10 @@ final class CompanionTest extends TestCase
     {
         return [
             'no .env file' => [[], "KEY_PATH=target.pem\n"],
-            '.env file without the variable' => [['.env' => "OTHER_VARIABLE=1\n"], "OTHER_VARIABLE=1\nKEY_PATH=target.pem\n"],
+            '.env file without the variable' => [
+                ['.env' => "OTHER_VARIABLE=1\n"],
+                "OTHER_VARIABLE=1\nKEY_PATH=target.pem\n",
+            ],
         ];
     }
 }

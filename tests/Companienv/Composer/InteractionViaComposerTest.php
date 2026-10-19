@@ -22,8 +22,13 @@ final class InteractionViaComposerTest extends TestCase
      * @param callable(InteractionViaComposer): (bool|string|null) $act
      * @param bool|string|array<string, string>|null $expectedResult
      */
-    public function testInteraction(bool $interactive, string $answers, callable $act, $expectedResult, string $expectedOutput): void
-    {
+    public function testInteraction(
+        bool $interactive,
+        string $answers,
+        callable $act,
+        $expectedResult,
+        string $expectedOutput
+    ): void {
         $inputStream = fopen('php://memory', 'r+');
         fwrite($inputStream, $answers);
         rewind($inputStream);
@@ -74,7 +79,13 @@ final class InteractionViaComposerTest extends TestCase
         return [
             'interactive confirmation accepted' => [true, "y\n", $confirm, true, "Let's fix this? (y) "],
             'interactive confirmation declined' => [true, "n\n", $confirm, false, "Let's fix this? (y) "],
-            'non-interactive confirmation' => [false, '', $confirm, true, "Automatically confirmed in non-interactive mode\n"],
+            'non-interactive confirmation' => [
+                false,
+                '',
+                $confirm,
+                true,
+                "Automatically confirmed in non-interactive mode\n",
+            ],
             'interactive answer' => [true, "my-value\n", $ask, 'my-value', 'MY_VARIABLE ? '],
             'interactive empty answer' => [true, "\n", $ask, 'default-value', 'MY_VARIABLE ? '],
             'interactive empty answer to an empty default' => [true, "\n", $askWithEmptyDefault, '', 'MY_VARIABLE ? '],

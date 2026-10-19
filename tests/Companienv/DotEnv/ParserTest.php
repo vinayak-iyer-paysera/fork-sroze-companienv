@@ -64,7 +64,11 @@ final class ParserTest extends TestCase
                     new Block(
                         'Keys',
                         '',
-                        [new Variable('KEY_PATH', 'key.pem'), new Variable('PUB_PATH', 'pub.pem'), new Variable('KEY_PASS', '')],
+                        [
+                            new Variable('KEY_PATH', 'key.pem'),
+                            new Variable('PUB_PATH', 'pub.pem'),
+                            new Variable('KEY_PASS', ''),
+                        ],
                         [
                             new Attribute('only-if', ['KEY_PATH', 'KEY_PASS'], ['USE_KEYS' => 'true']),
                             new Attribute('rsa-pair', ['KEY_PATH', 'PUB_PATH', 'KEY_PASS'], []),
@@ -74,7 +78,8 @@ final class ParserTest extends TestCase
             ],
             'Symfony recipe blocks' => [
                 "# This file is a \"template\" of which env vars need to be defined\n\n"
-                . "###> symfony/framework-bundle ###\nAPP_ENV=dev\n#TRUSTED_PROXIES=127.0.0.1\n###< symfony/framework-bundle ###\n\n"
+                . "###> symfony/framework-bundle ###\nAPP_ENV=dev\n#TRUSTED_PROXIES=127.0.0.1\n"
+                . "###< symfony/framework-bundle ###\n\n"
                 . "###> sroze/enqueue-bridge ###\nENQUEUE_DSN=something\n###< sroze/enqueue-bridge ###\n",
                 new File('', [
                     new Block('> symfony/framework-bundle', '', [new Variable('APP_ENV', 'dev')]),
@@ -86,7 +91,10 @@ final class ParserTest extends TestCase
             'variables before any block' => [
                 "  MY_VARIABLE=default-value  \n\nOTHER_VARIABLE=\n",
                 new File('', [
-                    new Block('', '', [new Variable('MY_VARIABLE', 'default-value'), new Variable('OTHER_VARIABLE', '')]),
+                    new Block('', '', [
+                        new Variable('MY_VARIABLE', 'default-value'),
+                        new Variable('OTHER_VARIABLE', ''),
+                    ]),
                 ]),
             ],
             'value containing equals signs' => [

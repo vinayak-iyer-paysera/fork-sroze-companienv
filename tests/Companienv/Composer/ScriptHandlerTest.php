@@ -56,7 +56,12 @@ final class ScriptHandlerTest extends TestCase
     }
 
     /**
-     * @return array<string, array{0: array<string, mixed>, 1: array<string, string>, 2: array<string, string>, 3: string}>
+     * @return array<string, array{
+     *     0: array<string, mixed>,
+     *     1: array<string, string>,
+     *     2: array<string, string>,
+     *     3: string
+     * }>
      */
     public static function extraDataProvider(): array
     {

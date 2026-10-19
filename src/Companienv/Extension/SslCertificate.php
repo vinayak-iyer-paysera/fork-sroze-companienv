@@ -53,7 +53,11 @@ class SslCertificate implements Extension
                 '-subj', '/C=SS/ST=SS/L=SelfSignedCity/O=SelfSignedOrg/CN='.addcslashes($domainName, '\\/+'),
             ]))->mustRun();
         } catch (ProcessRuntimeException $exception) {
-            throw new RuntimeException('Could not have generated the SSL certificate: '.$exception->getMessage(), $exception->getCode(), $exception);
+            throw new RuntimeException(
+                'Could not have generated the SSL certificate: '.$exception->getMessage(),
+                $exception->getCode(),
+                $exception
+            );
         }
 
         $this->populatedVariables[$privateKeyVariableName] = $privateKeyPath;
@@ -66,8 +70,12 @@ class SslCertificate implements Extension
     /**
      * {@inheritdoc}
      */
-    public function isVariableRequiringValue(Companion $companion, Block $block, Variable $variable, ?string $currentValue = null) : int
-    {
+    public function isVariableRequiringValue(
+        Companion $companion,
+        Block $block,
+        Variable $variable,
+        ?string $currentValue = null
+    ) : int {
         if (null === ($attribute = $block->getAttribute('ssl-certificate', $variable))) {
             return Extension::ABSTAIN;
         }
