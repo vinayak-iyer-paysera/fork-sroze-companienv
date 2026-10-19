@@ -185,23 +185,30 @@ final class RsaKeysTest extends TestCase
         ]);
 
         $messages = [];
+        $errorsHoldingTheProcess = 0;
         try {
             (new RsaKeys())->getVariableValue($this->companion($interaction), $block, $variables[0]);
         } catch (RuntimeException $exception) {
             for ($error = $exception; $error !== null; $error = $error->getPrevious()) {
                 $messages[] = $error->getMessage();
+                $errorsHoldingTheProcess += (int) method_exists($error, 'getProcess');
             }
         }
 
+        $prefix = 'Could not have generated the RSA public/private key: ';
         $this->assertSame(
             [
-                'first message' => 'Could not have generated the RSA public/private key',
-                'errors' => 2,
+                'message start' => $prefix,
+                'exit code in the message' => true,
+                'errors' => 1,
+                'errors holding the process' => 0,
                 'pass phrase in a message' => false,
             ],
             [
-                'first message' => $messages[0] ?? null,
+                'message start' => substr($messages[0] ?? '', 0, strlen($prefix)),
+                'exit code in the message' => preg_match('/Exit Code: \\d/', $messages[0] ?? '') === 1,
                 'errors' => count($messages),
+                'errors holding the process' => $errorsHoldingTheProcess,
                 'pass phrase in a message' => preg_grep('/secret-phrase/', $messages) !== [],
             ]
         );

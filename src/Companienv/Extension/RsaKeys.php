@@ -75,9 +75,8 @@ class RsaKeys implements Extension
             ))->mustRun();
         } catch (ProcessRuntimeException $exception) {
             throw new RuntimeException(
-                'Could not have generated the RSA public/private key',
-                $exception->getCode(),
-                $exception
+                'Could not have generated the RSA public/private key: '.$exception->getMessage(),
+                $exception->getCode()
             );
         }
 
