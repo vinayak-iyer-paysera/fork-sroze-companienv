@@ -30,10 +30,13 @@ class InMemoryInteraction implements Interaction
         $normalizedKey = trim(strip_tags($question));
         $this->buffer .= trim(strip_tags($question))."\n";
 
-        if (isset($this->answers[$normalizedKey])) {
-            return is_array($this->answers[$normalizedKey])
-                ? array_shift($this->answers[$normalizedKey])
-                : $this->answers[$normalizedKey];
+        $answer = $this->answers[$normalizedKey] ?? null;
+        if (is_array($answer)) {
+            $answer = array_shift($this->answers[$normalizedKey]);
+        }
+
+        if (null !== $answer) {
+            return $answer;
         }
 
         throw new RuntimeException(sprintf(

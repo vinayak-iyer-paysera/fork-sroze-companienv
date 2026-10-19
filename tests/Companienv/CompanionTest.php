@@ -222,7 +222,7 @@ final class CompanionTest extends TestCase
      */
     public static function fillGapsDataProvider(): array
     {
-        $missingOne = "It looks like you are missing some configuration (1 variables). "
+        $missingOne = 'It looks like you are missing some configuration (1 variables). '
             . "I will help you to sort this out.\n"
             . "Let's fix this? (y)\n";
 
