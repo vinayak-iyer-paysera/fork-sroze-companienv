@@ -103,6 +103,36 @@ final class CompanionTest extends TestCase
                 "MY_VARIABLE='it'\"'\"'s \$HOME C:\\new'\n",
                 ['MY_VARIABLE' => 'it\'s $HOME C:\\new'],
             ],
+            'value with a single quote and a backslash before n' => [
+                "MY_VARIABLE=\n",
+                ['MY_VARIABLE ?' => 'it\'s C:\\new'],
+                "MY_VARIABLE='it'\"'\"'s C:\\new'\n",
+                ['MY_VARIABLE' => 'it\'s C:\\new'],
+            ],
+            'value with a single quote and a backslash before r' => [
+                "MY_VARIABLE=\n",
+                ['MY_VARIABLE ?' => 'it\'s C:\\run'],
+                "MY_VARIABLE='it'\"'\"'s C:\\run'\n",
+                ['MY_VARIABLE' => 'it\'s C:\\run'],
+            ],
+            'value with a single quote and a variable reference' => [
+                "MY_VARIABLE=\n",
+                ['MY_VARIABLE ?' => 'it\'s $HOME'],
+                "MY_VARIABLE='it'\"'\"'s \$HOME'\n",
+                ['MY_VARIABLE' => 'it\'s $HOME'],
+            ],
+            'value with a single quote followed by a dollar' => [
+                "MY_VARIABLE=\n",
+                ['MY_VARIABLE ?' => 'P@ss\'w$rd'],
+                "MY_VARIABLE='P@ss'\"'\"'w\$rd'\n",
+                ['MY_VARIABLE' => 'P@ss\'w$rd'],
+            ],
+            'value with a single quote and a trailing escaped double quote' => [
+                "MY_VARIABLE=\n",
+                ['MY_VARIABLE ?' => 'x\'\\"'],
+                "MY_VARIABLE='x'\"'\"'\\\"'\n",
+                ['MY_VARIABLE' => 'x\'\\"'],
+            ],
             'value with a hash' => [
                 "MY_VARIABLE=\n",
                 ['MY_VARIABLE ?' => 'a #b'],
@@ -195,6 +225,12 @@ final class CompanionTest extends TestCase
                 ['.env.dist' => "DB_PASSWORD=secret\n", '.env' => "DB_PASSWORD=\n"],
                 ["Let's fix this? (y)" => 'y', 'DB_PASSWORD ? (secret)' => 'pa$1ss'],
                 "DB_PASSWORD='pa\$1ss'\n",
+                $missingOne . "\nDB_PASSWORD ? (secret)\n",
+            ],
+            'empty value updated with a value containing backslashes and a digit' => [
+                ['.env.dist' => "DB_PASSWORD=secret\n", '.env' => "DB_PASSWORD=\n"],
+                ["Let's fix this? (y)" => 'y', 'DB_PASSWORD ? (secret)' => 'pa\\1\\\\ss'],
+                "DB_PASSWORD='pa\\1\\\\ss'\n",
                 $missingOne . "\nDB_PASSWORD ? (secret)\n",
             ],
             'empty value with an empty reference: nothing is asked' => [
@@ -300,6 +336,44 @@ final class CompanionTest extends TestCase
                 null,
                 $missingOne . "\n<comment>I let you think about it then. Re-run the command to get started again.</comment>\n\n",
             ],
+        ];
+    }
+
+    /**
+     * @dataProvider existingFileToPropagateDataProvider
+     *
+     * @param array<string, string> $files
+     */
+    public function testFillGapsKeepsAnExistingFileToPropagate(array $files, string $expectedEnv): void
+    {
+        $fileSystem = new InMemoryFileSystem();
+        $fileSystem->write('.env.dist', "## Keys\n#+file-to-propagate(KEY_PATH)\nKEY_PATH=target.pem\n");
+        $fileSystem->write('target.pem', 'CURRENT');
+        $fileSystem->write('/downloads/key.pem', 'DOWNLOADED');
+        foreach ($files as $path => $contents) {
+            $fileSystem->write($path, $contents);
+        }
+        $interaction = new InMemoryInteraction([
+            "Let's fix this? (y)" => 'y',
+            'KEY_PATH: What is the path of your downloaded file?' => '/downloads/key.pem',
+        ]);
+
+        (new Companion($fileSystem, $interaction, new Chained(Application::defaultExtensions())))->fillGaps();
+
+        $this->assertSame(
+            ['.env' => $expectedEnv, 'target.pem' => 'CURRENT'],
+            ['.env' => $fileSystem->getContents('.env'), 'target.pem' => $fileSystem->getContents('target.pem')]
+        );
+    }
+
+    /**
+     * @return array<string, array{0: array<string, string>, 1: string}>
+     */
+    public static function existingFileToPropagateDataProvider(): array
+    {
+        return [
+            'no .env file' => [[], "KEY_PATH=target.pem\n"],
+            '.env file without the variable' => [['.env' => "OTHER_VARIABLE=1\n"], "OTHER_VARIABLE=1\nKEY_PATH=target.pem\n"],
         ];
     }
 }
