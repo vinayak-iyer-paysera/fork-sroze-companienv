@@ -36,7 +36,6 @@ class ValueFormatter extends DotenvFormatter
 
     private function requiresQuotes(string $value): bool
     {
-        return preg_match('/[\s#"\'\\\\$]/', $value)
-            && !preg_match('/^(?:"(?:[^"\\\\]|\\\\.)*"|\'[^\']*\')$/s', $value);
+        return 1 === preg_match('/[\s#"\'\\\\$]/', $value);
     }
 }

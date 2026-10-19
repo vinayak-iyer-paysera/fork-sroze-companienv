@@ -23,8 +23,8 @@ final class ValueFormatterTest extends TestCase
     {
         return [
             'plain value' => ['abc123=', false, null, 'abc123='],
-            'value in double quotes' => ['"My App"', false, null, '"My App"'],
-            'value in single quotes' => ["'my site'", false, null, "'my site'"],
+            'value in double quotes' => ['"My App"', false, null, "'\"My App\"'"],
+            'value in single quotes' => ["'my site'", false, null, "\"'my site'\""],
             'value with a space' => ['my site', false, null, "'my site'"],
             'value with a hash' => ['a#b', false, null, "'a#b'"],
             'value with a double quote' => ['a"b', false, null, "'a\"b'"],
@@ -40,6 +40,8 @@ final class ValueFormatterTest extends TestCase
                 "'it'\"'\"'s \"a\\b\" for $1'\"'\"''",
             ],
             'reference value' => ['dev # dev or prod', false, 'dev # dev or prod', 'dev # dev or prod'],
+            'reference value in double quotes' => ['"My App"', false, '"My App"', '"My App"'],
+            'reference value in single quotes' => ["'my site'", false, "'my site'", "'my site'"],
             'reference value Dotenv cannot read' => ['My App', false, 'My App', "'My App'"],
             'reference value ending in an unmatched quote' => ['27"', false, '27"', "'27\"'"],
             'value other than the reference value' => ['dev # local', false, 'dev # dev or prod', "'dev # local'"],

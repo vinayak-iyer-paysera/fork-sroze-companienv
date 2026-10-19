@@ -145,6 +145,30 @@ final class CompanionTest extends TestCase
                 "MY_VARIABLE='C:\\new\\\\x'\n",
                 ['MY_VARIABLE' => 'C:\\new\\\\x'],
             ],
+            'typed value in single quotes' => [
+                "MY_VARIABLE=\n",
+                ['MY_VARIABLE ?' => "'abc'"],
+                "MY_VARIABLE=\"'abc'\"\n",
+                ['MY_VARIABLE' => "'abc'"],
+            ],
+            'typed value in double quotes' => [
+                "MY_VARIABLE=\n",
+                ['MY_VARIABLE ?' => '"abc"'],
+                "MY_VARIABLE='\"abc\"'\n",
+                ['MY_VARIABLE' => '"abc"'],
+            ],
+            'typed value with a command' => [
+                "MY_VARIABLE=\n",
+                ['MY_VARIABLE ?' => '$(echo injected)'],
+                "MY_VARIABLE='\$(echo injected)'\n",
+                ['MY_VARIABLE' => '$(echo injected)'],
+            ],
+            'typed value with a command in double quotes' => [
+                "MY_VARIABLE=\n",
+                ['MY_VARIABLE ?' => '"$(echo injected)"'],
+                "MY_VARIABLE='\"\$(echo injected)\"'\n",
+                ['MY_VARIABLE' => '"$(echo injected)"'],
+            ],
             'default in quotes from the dist file' => [
                 "MY_VARIABLE=\"My App\"\n",
                 ['MY_VARIABLE ? ("My App")' => '"My App"'],

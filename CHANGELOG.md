@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Without interaction, a missing `#+file-to-propagate` file whose variable was not set failed with a `TypeError` in the Composer script and was asked for without end in the console command. Its path is now written and the file stays missing.
 - Without interaction, the console command asked again without end for a variable whose default is empty. It now writes the empty value, as the Composer script does.
 - In the Composer script, an empty answer to a question with no default failed with a `TypeError`. The question is now asked again, as the console command does.
-- A value containing whitespace, `#`, a quote, a backslash or `$` was written without quotes, so Dotenv could not read the `.env` file or read a different value. Such a value is now written in single quotes, or in double quotes when its only quote is a `'` and it has no `\`, `"` or `$`. A value that is already in quotes is written as it is, and so is a value equal to its `.env.dist` default when Dotenv can read that default.
+- A value containing whitespace, `#`, a quote, a backslash or `$` was written without quotes, so Dotenv could not read the `.env` file or read a different value. Such a value is now written in single quotes, or in double quotes when its only quote is a `'` and it has no `\`, `"` or `$`, so Dotenv reads back the value as it was given, also when it starts and ends with a quote. A value equal to its `.env.dist` default is written as the file has it when Dotenv can read that default.
 - PHP 8.1+ deprecation notices from `jackiedo/dotenv-editor` 1.2.0 and earlier when writing a variable.
 - PHP 8.4 deprecations for implicitly nullable parameters.
 
@@ -37,6 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Key paths, the pass phrase and the domain name are no longer interpreted by a shell.
 - The domain name is escaped for openssl's subject syntax, so `/`, `+` and `\` in it no longer add subject fields or make openssl fail.
 - The RSA pass phrase is passed to openssl on standard input instead of the command line.
-- A value written to `.env` that contains `$(…)` is no longer run as a shell command when Dotenv reads the file, unless it is the variable's `.env.dist` default or is already written in double quotes.
+- A value written to `.env` that contains `$(…)` is no longer run as a shell command when Dotenv reads the file, unless it is the variable's `.env.dist` default.
 
 [Unreleased]: https://github.com/paysera/fork-sroze-companienv/compare/0.0.12...HEAD
