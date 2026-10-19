@@ -53,6 +53,8 @@ jobs:
           - { php: '8.4', symfony: '4.*' }
           - { php: '8.5', symfony: '3.*' }
           - { php: '8.5', symfony: '4.*' }
+        include:
+          - { php: '8.4', symfony: '7.*', dependency: 'highest', php-options: '-d error_reporting=-1' }
 
     steps:
       - name: Checkout
@@ -87,9 +89,4 @@ jobs:
         run: vendor/bin/behat -fprogress
 
       - name: Run PHPUnit
-        if: matrix.php != '8.4' || matrix.dependency != 'highest' || matrix.symfony != '7.*'
-        run: vendor/bin/phpunit
-
-      - name: Run PHPUnit with every deprecation reported
-        if: matrix.php == '8.4' && matrix.dependency == 'highest' && matrix.symfony == '7.*'
-        run: php -d error_reporting=-1 vendor/bin/phpunit
+        run: php ${{ matrix.php-options }} vendor/bin/phpunit
