@@ -13,14 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A GitHub Actions workflow that runs the tests on every PHP and Symfony combination it lists, with the lowest and the highest dependencies.
 
 ### Changed
-- PHP 7.1 or later is required, and PHP 8.1 or later with Symfony 6, because `symfony/process` 6.4.33 is.
+- PHP 7.1 or later is required. `symfony/process` 6 is required at 6.4.33 or later, which needs PHP 8.1.
 - `symfony/console`, `symfony/dotenv` and `symfony/process` 4.4 or later are required on the 4.x line.
 - `jackiedo/dotenv-editor` 1.1.1 or later is required.
 - The development dependencies install on every PHP and Symfony combination the workflow runs.
 - The console command accepts an empty answer to a question whose default is empty, as the Composer script does, instead of asking again.
 - `#+file-to-propagate` looks for the file at the path set in `.env`, or at the `.env.dist` path, as Dotenv reads it, when `.env` sets none. A file that is there is kept, also when `.env` does not set the variable. A missing one is asked for, also when the variable is set, and copied to that path; without interaction, it stays missing, a path set in `.env` is left as it is and an empty one gets the `.env.dist` path. A variable with no path in either file is asked like any other variable.
-- A typed value that starts and ends with a quote keeps its quotes: `'abc'` now reads back as `'abc'`, where it read back as `abc`. A quoted `.env.dist` default, kept with Enter or typed again exactly, is still written as the file has it, and so reads back without its quotes.
-- The RSA pass phrase is asked again, with the reason, when it is shorter than 4 bytes or longer than 1,023. openssl 1.1.1d refuses a shorter one, so key generation failed, and openssl reads only the first 1,023 bytes, so a longer one, as stored in `.env`, did not open the key.
+- A typed value that starts and ends with a quote keeps its quotes: `'abc'` now reads back as `'abc'`, where it read back as `abc`. A quoted `.env.dist` default, kept with Enter or typed again exactly, is still written as the file has it when Dotenv can read it, and so reads back without its quotes.
+- The RSA pass phrase is asked again, with the reason, unless it is 4 to 1,023 bytes long. openssl 1.1.1d refuses a shorter one, which made key generation fail, and openssl reads at most 1,023 bytes of a pass phrase on standard input, where it now goes; on OpenSSL 3, 0.0.12 took a longer one on the command line.
 
 ### Fixed
 - The `companienv` console command failed on Symfony 5 and later.

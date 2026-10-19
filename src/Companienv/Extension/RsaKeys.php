@@ -90,7 +90,8 @@ class RsaKeys implements Extension
     private function askPassPhrase(Companion $companion): string
     {
         $passPhrase = $companion->ask('Enter pass phrase to protect the keys: ');
-        while (strlen($passPhrase) < self::MINIMUM_PASS_PHRASE_LENGTH
+        while (
+            strlen($passPhrase) < self::MINIMUM_PASS_PHRASE_LENGTH
             || strlen($passPhrase) > self::MAXIMUM_PASS_PHRASE_LENGTH
         ) {
             $passPhrase = $companion->ask(sprintf(
