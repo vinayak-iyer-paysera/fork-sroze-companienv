@@ -22,7 +22,7 @@
     "jackiedo/dotenv-editor": "^1.1.1"
   },
   "conflict": {
-    "symfony/process": ">=5.0,<5.4.51 || >=6.4,<6.4.33 || >=7.4,<7.4.5"
+    "symfony/process": ">=5.0,<5.4.51 || >=6.0,<6.4.33 || >=7.4,<7.4.5"
   },
   "autoload": {
     "psr-0": {

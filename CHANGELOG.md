@@ -13,13 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A GitHub Actions workflow that runs the tests on every PHP and Symfony combination it lists, with the lowest and the highest dependencies.
 
 ### Changed
-- PHP 7.1 or later is required.
+- PHP 7.1 or later is required, and PHP 8.1 or later with Symfony 6, because `symfony/process` 6.4.33 is.
 - `symfony/console`, `symfony/dotenv` and `symfony/process` 4.4 or later are required on the 4.x line.
 - `jackiedo/dotenv-editor` 1.1.1 or later is required.
 - The development dependencies install on every PHP and Symfony combination the workflow runs.
 - The console command accepts an empty answer to a question whose default is empty, as the Composer script does, instead of asking again.
 - `#+file-to-propagate` looks for the file at the path set in `.env`, or at the `.env.dist` path, as Dotenv reads it, when `.env` sets none. A file that is there is kept, also when `.env` does not set the variable. A missing one is asked for, also when the variable is set, and copied to that path; without interaction, it stays missing, a path set in `.env` is left as it is and an empty one gets the `.env.dist` path. A variable with no path in either file is asked like any other variable.
-- A typed value that starts and ends with a quote keeps its quotes: `'abc'` now reads back as `'abc'`, where it read back as `abc`. A quoted `.env.dist` default that is accepted as it is, as when Enter is pressed, is still written as the file has it.
+- A typed value that starts and ends with a quote keeps its quotes: `'abc'` now reads back as `'abc'`, where it read back as `abc`. A quoted `.env.dist` default, kept with Enter or typed again exactly, is still written as the file has it, and so reads back without its quotes.
 - The RSA pass phrase is asked again, with the reason, when it is shorter than 4 bytes or longer than 1,023. openssl 1.1.1d refuses a shorter one, so key generation failed, and openssl reads only the first 1,023 bytes, so a longer one, as stored in `.env`, did not open the key.
 
 ### Fixed
@@ -40,6 +40,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The domain name is escaped for openssl's subject syntax, so `/`, `+` and `\` in it no longer add subject fields or make openssl fail.
 - The RSA pass phrase is passed to openssl on standard input instead of the command line. When key generation fails, the exception no longer wraps Symfony's process exception, whose message named the pass phrase; it carries openssl's error itself.
 - A value written to `.env` that contains `$(…)` is no longer run as a shell command when Dotenv reads the file, unless it is the variable's `.env.dist` default.
-- The `symfony/process` releases that CVE-2026-24739 (argument escaping under MSYS2 or Git Bash on Windows) lists for the 5.x, 6.4 and 7.4 lines are refused: 5.x before 5.4.51, 6.4 before 6.4.33 and 7.4 before 7.4.5. Symfony 3.4 and 4.4 have no fixed release, and their affected releases are still allowed.
+- `symfony/process` releases with the argument escaping of CVE-2026-24739 (MSYS2 or Git Bash on Windows) are refused, also when `symfony/symfony` provides the package: 5.x before 5.4.51, 6.x before 6.4.33 and 7.4 before 7.4.5. The advisory lists 6.4 only, but 6.0 to 6.3 escape the same way and have no fix. Symfony 3.4 and 4.4 have no fixed release, and their affected releases are still allowed.
 
 [Unreleased]: https://github.com/paysera/fork-sroze-companienv/compare/0.0.12...HEAD
