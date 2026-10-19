@@ -13,6 +13,7 @@ use Symfony\Component\Process\Process;
 class RsaKeys implements Extension
 {
     private const MINIMUM_PASS_PHRASE_LENGTH = 4;
+    private const MAXIMUM_PASS_PHRASE_LENGTH = 1023;
 
     private $populatedVariables = [];
 
@@ -90,10 +91,13 @@ class RsaKeys implements Extension
     private function askPassPhrase(Companion $companion): string
     {
         $passPhrase = $companion->ask('Enter pass phrase to protect the keys: ');
-        while (strlen($passPhrase) < self::MINIMUM_PASS_PHRASE_LENGTH) {
+        while (strlen($passPhrase) < self::MINIMUM_PASS_PHRASE_LENGTH
+            || strlen($passPhrase) > self::MAXIMUM_PASS_PHRASE_LENGTH
+        ) {
             $passPhrase = $companion->ask(sprintf(
-                'The pass phrase must have at least %d characters. Enter pass phrase to protect the keys: ',
-                self::MINIMUM_PASS_PHRASE_LENGTH
+                'The pass phrase must be %d to %d bytes long. Enter pass phrase to protect the keys: ',
+                self::MINIMUM_PASS_PHRASE_LENGTH,
+                self::MAXIMUM_PASS_PHRASE_LENGTH
             ));
         }
 

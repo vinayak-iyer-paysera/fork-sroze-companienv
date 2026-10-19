@@ -20,12 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The console command accepts an empty answer to a question whose default is empty, as the Composer script does, instead of asking again.
 - `#+file-to-propagate` looks for the file at the path set in `.env`, or at the `.env.dist` path, as Dotenv reads it, when `.env` sets none. A file that is there is kept, also when `.env` does not set the variable. A missing one is asked for, also when the variable is set, and copied to that path; without interaction, it stays missing, a path set in `.env` is left as it is and an empty one gets the `.env.dist` path. A variable with no path in either file is asked like any other variable.
 - A typed value that starts and ends with a quote keeps its quotes: `'abc'` now reads back as `'abc'`, where it read back as `abc`. A quoted `.env.dist` default that is accepted as it is, as when Enter is pressed, is still written as the file has it.
+- The RSA pass phrase is asked again, with the reason, when it is shorter than 4 bytes or longer than 1,023. openssl 1.1.1d refuses a shorter one, so key generation failed, and openssl reads only the first 1,023 bytes, so a longer one, as stored in `.env`, did not open the key.
 
 ### Fixed
 - The `companienv` console command failed on Symfony 5 and later.
 - RSA key and SSL certificate generation failed with `symfony/process` 5 and later.
 - Declining RSA key or SSL certificate generation asked the same question again for the other variables of the pair.
-- An RSA pass phrase shorter than 4 characters made key generation fail with the openssl builds that refuse one, 1.1.1d among them. Such a pass phrase is now asked again.
 - A `#+file-to-propagate` file that existed was reported as missing configuration on every run.
 - Without interaction, a question with no default (the RSA pass phrase, the SSL domain name) failed with a `TypeError` in the Composer script and was asked again without end in the console command. It now fails with a `Companienv\IO\UnansweredQuestionException`, a `RuntimeException` that names the question.
 - Without interaction, a missing `#+file-to-propagate` file whose variable was not set failed with a `TypeError` in the Composer script and was asked for without end in the console command. Its path is now written and the file stays missing.

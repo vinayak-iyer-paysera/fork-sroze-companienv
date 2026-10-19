@@ -22,7 +22,7 @@ final class RsaKeysTest extends TestCase
     private const CONFIRMATION = 'Variables KEY_PATH and PUB_PATH and KEY_PASS represents an RSA public/private key. '
         . 'Do you want to automatically generate them? (y)';
     private const PASS_PHRASE_QUESTION = 'Enter pass phrase to protect the keys:';
-    private const SHORT_PASS_PHRASE_QUESTION = 'The pass phrase must have at least 4 characters. '
+    private const REPEATED_PASS_PHRASE_QUESTION = 'The pass phrase must be 4 to 1023 bytes long. '
         . self::PASS_PHRASE_QUESTION;
 
     protected function setUp(): void
@@ -146,15 +146,25 @@ final class RsaKeysTest extends TestCase
                 'it\'s my "secret" phrase',
                 self::PASS_PHRASE_QUESTION . "\n",
             ],
-            'pass phrase of 4 characters' => [
+            'pass phrase of 4 bytes' => [
                 [self::PASS_PHRASE_QUESTION => 'abcd'],
                 'abcd',
                 self::PASS_PHRASE_QUESTION . "\n",
             ],
-            'pass phrases shorter than 4 characters: asked again until one is long enough' => [
-                [self::PASS_PHRASE_QUESTION => 'abc', self::SHORT_PASS_PHRASE_QUESTION => ['ab', 'abcd']],
+            'pass phrase of 1023 bytes' => [
+                [self::PASS_PHRASE_QUESTION => str_repeat('a', 1023)],
+                str_repeat('a', 1023),
+                self::PASS_PHRASE_QUESTION . "\n",
+            ],
+            'pass phrases shorter than 4 bytes: asked again until one is long enough' => [
+                [self::PASS_PHRASE_QUESTION => 'abc', self::REPEATED_PASS_PHRASE_QUESTION => ['ab', 'abcd']],
                 'abcd',
-                self::PASS_PHRASE_QUESTION . "\n" . str_repeat(self::SHORT_PASS_PHRASE_QUESTION . "\n", 2),
+                self::PASS_PHRASE_QUESTION . "\n" . str_repeat(self::REPEATED_PASS_PHRASE_QUESTION . "\n", 2),
+            ],
+            'pass phrase longer than 1023 bytes: asked again' => [
+                [self::PASS_PHRASE_QUESTION => str_repeat('a', 1024), self::REPEATED_PASS_PHRASE_QUESTION => ['abcd']],
+                'abcd',
+                self::PASS_PHRASE_QUESTION . "\n" . self::REPEATED_PASS_PHRASE_QUESTION . "\n",
             ],
         ];
     }
