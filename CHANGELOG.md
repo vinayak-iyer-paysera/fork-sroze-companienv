@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The development dependencies install on every PHP and Symfony combination the workflow runs.
 - The console command accepts an empty answer to a question whose default is empty, as the Composer script does, instead of asking again.
 - `#+file-to-propagate` looks for the file at the path set in `.env`, or at the `.env.dist` path, as Dotenv reads it, when `.env` sets none. A file that is there is kept, also when `.env` does not set the variable. A missing one is asked for, also when the variable is set, and copied to that path; without interaction, it stays missing, a path set in `.env` is left as it is and an empty one gets the `.env.dist` path. A variable with no path in either file is asked like any other variable.
+- A typed value that starts and ends with a quote keeps its quotes: `'abc'` now reads back as `'abc'`, where it read back as `abc`. A quoted `.env.dist` default that is accepted as it is, as when Enter is pressed, is still written as the file has it.
 
 ### Fixed
 - The `companienv` console command failed on Symfony 5 and later.
@@ -30,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Without interaction, a missing `#+file-to-propagate` file whose variable was not set failed with a `TypeError` in the Composer script and was asked for without end in the console command. Its path is now written and the file stays missing.
 - Without interaction, the console command asked again without end for a variable whose default is empty. It now writes the empty value, as the Composer script does.
 - In the Composer script, an empty answer to a question with no default failed with a `TypeError`. The question is now asked again, as the console command does.
-- A value containing whitespace, `#`, a quote, a backslash or `$` was written without quotes, so Dotenv could not read the `.env` file or read a different value. Such a value is now written in single quotes, or in double quotes when its only quote is a `'` and it has no `\`, `"` or `$`, so Dotenv reads back the value as it was given, also when it starts and ends with a quote. A value equal to its `.env.dist` default is written as the file has it when Dotenv can read that default.
+- A value containing whitespace, `#`, a quote, a backslash or `$` was written without quotes, so Dotenv could not read the `.env` file or read a different value. Such a value is now written in single quotes, or in double quotes when its only quote is a `'` and it has no `\`, `"` or `$`, so Dotenv reads back the value as it was given. A value equal to its `.env.dist` default is written as the file has it when Dotenv can read that default.
 - PHP 8.1+ deprecation notices from `jackiedo/dotenv-editor` 1.2.0 and earlier when writing a variable.
 - PHP 8.4 deprecations for implicitly nullable parameters.
 
