@@ -13,6 +13,7 @@ jobs:
   tests:
     name: Run tests PHP ${{ matrix.php }} Symfony ${{ matrix.symfony }} ${{ matrix.dependency }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
 
@@ -54,7 +55,7 @@ jobs:
           - { php: '8.5', symfony: '3.*' }
           - { php: '8.5', symfony: '4.*' }
         include:
-          - { php: '8.4', symfony: '7.*', dependency: 'highest', php-options: '-d error_reporting=-1' }
+          - { php: '8.4', symfony: '7.*', dependency: 'highest', php-options: '-d error_reporting=-1', lint: true }
 
     steps:
       - name: Checkout
@@ -67,7 +68,7 @@ jobs:
           tools: flex
 
       - name: Check for PHP 8.4 deprecations
-        if: matrix.php == '8.4' && matrix.dependency == 'highest' && matrix.symfony == '7.*'
+        if: matrix.lint
         shell: bash
         run: find src tests spec features -name '*.php' -print0 | xargs -0 php -d error_reporting=-1 -d display_errors=1 -l 2>&1 | tee lint.log; ! grep -q Deprecated lint.log
 
