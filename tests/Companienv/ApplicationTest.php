@@ -111,10 +111,18 @@ final class ApplicationTest extends TestCase
      *
      * @param array<string, string> $expectedError
      * @param array<string, string> $expectedFiles
+     * @param array<string, string> $files
      */
-    public function testRunWithoutInteraction(string $distFile, array $expectedError, array $expectedFiles): void
-    {
+    public function testRunWithoutInteraction(
+        string $distFile,
+        array $expectedError,
+        array $expectedFiles,
+        array $files = []
+    ): void {
         file_put_contents($this->temporaryDirectory . '/.env.dist', $distFile);
+        foreach ($files as $name => $contents) {
+            file_put_contents($this->temporaryDirectory . '/' . $name, $contents);
+        }
         $application = new Application($this->temporaryDirectory);
         $application->setAutoExit(false);
         $application->setCatchExceptions(false);
@@ -156,7 +164,7 @@ final class ApplicationTest extends TestCase
     }
 
     /**
-     * @return array<string, array{0: string, 1: array<string, string>, 2: array<string, string>}>
+     * @return array<string, list<string|array<string, string>>>
      */
     public static function withoutInteractionDataProvider(): array
     {
@@ -182,6 +190,31 @@ final class ApplicationTest extends TestCase
                         . 'the self-signed SSL certificate:" in non-interactive mode: the question has no default.',
                 ],
                 ['.env.dist' => $sslCertificate],
+            ],
+            'rsa-pair whose files exist' => [
+                $rsaPair,
+                [
+                    UnansweredQuestionException::class => 'Cannot answer "KEY_PASS: What is the pass phrase of the '
+                        . 'existing keys?" in non-interactive mode: the question has no default.',
+                ],
+                [
+                    '.env' => "KEY_PATH=private.pem\nPUB_PATH=public.pem\n",
+                    '.env.dist' => $rsaPair,
+                    'private.pem' => 'KEY',
+                    'public.pem' => 'KEY',
+                ],
+                ['private.pem' => 'KEY', 'public.pem' => 'KEY'],
+            ],
+            'ssl-certificate whose files exist' => [
+                $sslCertificate,
+                [],
+                [
+                    '.env' => "CERT_KEY_PATH=key.pem\nCERT_PATH=cert.pem\nCERT_DOMAIN=\n",
+                    '.env.dist' => $sslCertificate,
+                    'cert.pem' => 'CERTIFICATE',
+                    'key.pem' => 'KEY',
+                ],
+                ['cert.pem' => 'CERTIFICATE', 'key.pem' => 'KEY'],
             ],
             'file-to-propagate' => [
                 $fileToPropagate,

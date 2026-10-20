@@ -425,4 +425,80 @@ final class CompanionTest extends TestCase
             ],
         ];
     }
+
+    /**
+     * @dataProvider existingKeyPairDataProvider
+     *
+     * @param array<string, string> $answers
+     */
+    public function testFillGapsKeepsAnExistingKeyPair(string $env, array $answers, string $expectedEnv): void
+    {
+        $fileSystem = new InMemoryFileSystem();
+        $fileSystem->write(
+            '.env.dist',
+            "## Keys\n#+rsa-pair(KEY_PATH PUB_PATH KEY_PASS)\nKEY_PATH=private.pem\nPUB_PATH=public.pem\nKEY_PASS=\n"
+        );
+        $fileSystem->write('.env', $env);
+        $fileSystem->write('private.pem', 'CURRENT PRIVATE KEY');
+        $fileSystem->write('public.pem', 'CURRENT PUBLIC KEY');
+        $interaction = new InMemoryInteraction(["Let's fix this? (y)" => 'y'] + $answers);
+
+        (new Companion($fileSystem, $interaction, new Chained(Application::defaultExtensions())))->fillGaps();
+
+        $this->assertSame(
+            [
+                '.env' => $expectedEnv,
+                'private.pem' => 'CURRENT PRIVATE KEY',
+                'public.pem' => 'CURRENT PUBLIC KEY',
+            ],
+            [
+                '.env' => $fileSystem->getContents('.env'),
+                'private.pem' => $fileSystem->getContents('private.pem'),
+                'public.pem' => $fileSystem->getContents('public.pem'),
+            ]
+        );
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: array<string, string>, 2: string}>
+     */
+    public static function existingKeyPairDataProvider(): array
+    {
+        return [
+            '.env without a key path' => [
+                "KEY_PATH=private.pem\nKEY_PASS=current-phrase\n",
+                ['PUB_PATH ? (public.pem)' => 'public.pem'],
+                "KEY_PATH=private.pem\nKEY_PASS=current-phrase\nPUB_PATH=public.pem\n",
+            ],
+            '.env without the pass phrase' => [
+                "KEY_PATH=private.pem\nPUB_PATH=public.pem\n",
+                ['KEY_PASS: What is the pass phrase of the existing keys?' => 'current-phrase'],
+                "KEY_PATH=private.pem\nPUB_PATH=public.pem\nKEY_PASS=current-phrase\n",
+            ],
+        ];
+    }
+
+    public function testFillGapsPropagatesAFileToAPathWithAVariableSetInTheEnvFile(): void
+    {
+        $fileSystem = new InMemoryFileSystem();
+        $fileSystem->write('.env.dist', "## Keys\n#+file-to-propagate(KEY_PATH)\nKEY_PATH=\${KEY_DIR}/target.pem\n");
+        $fileSystem->write('.env', "KEY_DIR=keys\n");
+        $fileSystem->write('/downloads/key.pem', 'DOWNLOADED');
+        $interaction = new InMemoryInteraction([
+            "Let's fix this? (y)" => 'y',
+            'KEY_PATH: What is the path of your downloaded file?' => '/downloads/key.pem',
+        ]);
+
+        (new Companion($fileSystem, $interaction, new Chained(Application::defaultExtensions())))->fillGaps();
+
+        $this->assertSame(
+            ['.env' => "KEY_DIR=keys\nKEY_PATH=keys/target.pem\n", 'keys/target.pem' => 'DOWNLOADED'],
+            [
+                '.env' => $fileSystem->getContents('.env'),
+                'keys/target.pem' => $fileSystem->exists('keys/target.pem')
+                    ? $fileSystem->getContents('keys/target.pem')
+                    : null,
+            ]
+        );
+    }
 }

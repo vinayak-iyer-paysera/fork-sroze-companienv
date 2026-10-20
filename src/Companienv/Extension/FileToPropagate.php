@@ -23,7 +23,7 @@ class FileToPropagate implements Extension
 
         $definedVariablesHash = $companion->getDefinedVariablesHash();
         $fileSystem = $companion->getFileSystem();
-        $filename = $this->getFilePath($variable, $definedVariablesHash[$variable->getName()] ?? null);
+        $filename = $this->getFilePath($companion, $variable, $definedVariablesHash[$variable->getName()] ?? null);
         if ('' === $filename) {
             return null;
         }
@@ -67,15 +67,15 @@ class FileToPropagate implements Extension
             return Extension::ABSTAIN;
         }
 
-        $filename = $this->getFilePath($variable, $currentValue);
+        $filename = $this->getFilePath($companion, $variable, $currentValue);
 
         return '' === $filename || $companion->getFileSystem()->exists($filename)
              ? Extension::ABSTAIN
              : Extension::VARIABLE_REQUIRED;
     }
 
-    private function getFilePath(Variable $variable, ?string $currentValue) : string
+    private function getFilePath(Companion $companion, Variable $variable, ?string $currentValue) : string
     {
-        return (string) ($currentValue ?: ($variable->getDotenvValue() ?? $variable->getValue()));
+        return (string) ($currentValue ?: $companion->resolveDistValue($variable));
     }
 }

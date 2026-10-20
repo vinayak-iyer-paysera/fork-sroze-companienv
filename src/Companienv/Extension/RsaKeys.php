@@ -3,6 +3,7 @@
 namespace Companienv\Extension;
 
 use Companienv\Companion;
+use Companienv\DotEnv\Attribute;
 use Companienv\DotEnv\Block;
 use Companienv\DotEnv\Variable;
 use Companienv\Extension;
@@ -30,6 +31,19 @@ class RsaKeys implements Extension
             return $this->populatedVariables[$variable->getName()];
         }
 
+        // Keep an existing pair: its variables are asked like any other, the pass phrase without a default
+        if ($this->filesExist($companion, $block, $attribute)) {
+            if ($variable->getName() !== $attribute->getVariableNames()[2]) {
+                return null;
+            }
+
+            $definedValue = $companion->getDefinedVariablesHash()[$variable->getName()] ?? '';
+
+            return '' !== $definedValue ? $definedValue : $companion->ask(
+                '<comment>'.$variable->getName().'</comment>: What is the pass phrase of the existing keys? '
+            );
+        }
+
         if (!$companion->askConfirmation(sprintf(
             'Variables %s represents an RSA public/private key. Do you want to automatically generate them? (y) ',
             implode(' and ', array_map(function ($variable) {
@@ -46,8 +60,10 @@ class RsaKeys implements Extension
 
         $fileSystem = $companion->getFileSystem();
         $passPhrase = $this->askPassPhrase($companion);
-        $privateKeyPath = $block->getVariable($privateKeyVariableName = $attribute->getVariableNames()[0])->getValue();
-        $publicKeyPath = $block->getVariable($publicKeyVariableName = $attribute->getVariableNames()[1])->getValue();
+        $privateKeyVariable = $block->getVariable($attribute->getVariableNames()[0]);
+        $publicKeyVariable = $block->getVariable($attribute->getVariableNames()[1]);
+        $privateKeyPath = $companion->resolveDistValue($privateKeyVariable);
+        $publicKeyPath = $companion->resolveDistValue($publicKeyVariable);
 
         try {
             (new Process(
@@ -80,8 +96,8 @@ class RsaKeys implements Extension
             );
         }
 
-        $this->populatedVariables[$privateKeyVariableName] = $privateKeyPath;
-        $this->populatedVariables[$publicKeyVariableName] = $publicKeyPath;
+        $this->populatedVariables[$privateKeyVariable->getName()] = $privateKeyVariable->getValue();
+        $this->populatedVariables[$publicKeyVariable->getName()] = $publicKeyVariable->getValue();
         $this->populatedVariables[$attribute->getVariableNames()[2]] = $passPhrase;
 
         return $this->populatedVariables[$variable->getName()];
@@ -117,12 +133,15 @@ class RsaKeys implements Extension
             return Extension::ABSTAIN;
         }
 
-        $fileSystem = $companion->getFileSystem();
+        return $this->filesExist($companion, $block, $attribute) ? Extension::ABSTAIN : Extension::VARIABLE_REQUIRED;
+    }
 
-        return (
-            !$fileSystem->exists($block->getVariable($attribute->getVariableNames()[0])->getValue())
-            || !$fileSystem->exists($block->getVariable($attribute->getVariableNames()[1])->getValue())
-        ) ? Extension::VARIABLE_REQUIRED
-          : Extension::ABSTAIN;
+    private function filesExist(Companion $companion, Block $block, Attribute $attribute) : bool
+    {
+        $fileSystem = $companion->getFileSystem();
+        $variableNames = $attribute->getVariableNames();
+
+        return $fileSystem->exists($companion->resolveDistValue($block->getVariable($variableNames[0])))
+            && $fileSystem->exists($companion->resolveDistValue($block->getVariable($variableNames[1])));
     }
 }

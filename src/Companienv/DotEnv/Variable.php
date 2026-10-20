@@ -31,10 +31,10 @@ class Variable
         return $this->value;
     }
 
-    public function getDotenvValue(): ?string
+    public function getDotenvValue(string $precedingLines = ''): ?string
     {
         try {
-            return @(new Dotenv())->parse('VALUE=' . $this->value . "\n")['VALUE'];
+            return @(new Dotenv())->parse($precedingLines . 'VALUE=' . $this->value . "\n")['VALUE'];
         } catch (FormatException $exception) {
             return null;
         }

@@ -24,6 +24,7 @@ final class RsaKeysTest extends TestCase
     private const PASS_PHRASE_QUESTION = 'Enter pass phrase to protect the keys:';
     private const REPEATED_PASS_PHRASE_QUESTION = 'The pass phrase must be 4 to 1023 bytes long. '
         . self::PASS_PHRASE_QUESTION;
+    private const EXISTING_PASS_PHRASE_QUESTION = 'KEY_PASS: What is the pass phrase of the existing keys?';
 
     protected function setUp(): void
     {
@@ -169,6 +170,182 @@ final class RsaKeysTest extends TestCase
         ];
     }
 
+    /**
+     * @dataProvider dotenvPathDataProvider
+     *
+     * @param array<string, string> $files
+     */
+    public function testGeneratedKeyPairAtThePathsDotenvReads(
+        string $privateKeyPath,
+        string $publicKeyPath,
+        array $files,
+        string $expectedPrivateKeyFile,
+        string $expectedPublicKeyFile
+    ): void {
+        foreach ($files as $name => $contents) {
+            file_put_contents($this->temporaryDirectory . '/' . $name, $contents);
+        }
+        $expectedFiles = array_keys(
+            ['.env.dist' => ''] + $files + [$expectedPrivateKeyFile => '', $expectedPublicKeyFile => '']
+        );
+        sort($expectedFiles, SORT_STRING);
+        $interaction = new InMemoryInteraction([
+            self::CONFIRMATION => 'y',
+            self::PASS_PHRASE_QUESTION => 'secret-phrase',
+        ]);
+        $companion = $this->companion($interaction);
+        $extension = new RsaKeys();
+        $block = self::block($privateKeyPath, $publicKeyPath);
+
+        $values = [];
+        foreach ($block->getVariables() as $variable) {
+            $values[$variable->getName()] = $extension->getVariableValue($companion, $block, $variable);
+        }
+
+        $generatedFiles = $this->readTemporaryDirectory();
+        $privateKey = openssl_pkey_get_private($generatedFiles[$expectedPrivateKeyFile] ?? '', 'secret-phrase');
+        $publicKey = $generatedFiles[$expectedPublicKeyFile] ?? null;
+        $this->assertSame(
+            [
+                'values' => [
+                    'KEY_PATH' => $privateKeyPath,
+                    'PUB_PATH' => $publicKeyPath,
+                    'KEY_PASS' => 'secret-phrase',
+                ],
+                'files' => $expectedFiles,
+                'public key of the private key' => true,
+            ],
+            [
+                'values' => $values,
+                'files' => array_keys($generatedFiles),
+                'public key of the private key' => $privateKey !== false
+                    && openssl_pkey_get_details($privateKey)['key'] === $publicKey,
+            ]
+        );
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string, 2: array<string, string>, 3: string, 4: string}>
+     */
+    public static function dotenvPathDataProvider(): array
+    {
+        $pair = "## Keys\n#+rsa-pair(KEY_PATH PUB_PATH KEY_PASS)\n";
+
+        return [
+            'paths in double quotes' => ['"private.pem"', '"public.pem"', [], 'private.pem', 'public.pem'],
+            'paths in single quotes' => ["'private.pem'", "'public.pem'", [], 'private.pem', 'public.pem'],
+            'paths followed by a comment' => [
+                'private.pem # the private key',
+                'public.pem # the public key',
+                [],
+                'private.pem',
+                'public.pem',
+            ],
+            'paths with a variable set in .env' => [
+                '${KEY_PREFIX}private.pem',
+                '${KEY_PREFIX}public.pem',
+                ['.env' => "KEY_PREFIX=my-\n"],
+                'my-private.pem',
+                'my-public.pem',
+            ],
+            'paths with a variable set earlier in .env.dist' => [
+                '${KEY_PREFIX}private.pem',
+                '${KEY_PREFIX}public.pem',
+                [
+                    '.env.dist' => "KEY_PREFIX=my-\n" . $pair
+                        . "KEY_PATH=\${KEY_PREFIX}private.pem\nPUB_PATH=\${KEY_PREFIX}public.pem\nKEY_PASS=\n",
+                ],
+                'my-private.pem',
+                'my-public.pem',
+            ],
+            'public key path made of the private key path' => [
+                'private.pem',
+                '${KEY_PATH}.pub',
+                ['.env.dist' => $pair . "KEY_PATH=private.pem\nPUB_PATH=\${KEY_PATH}.pub\nKEY_PASS=\n"],
+                'private.pem',
+                'private.pem.pub',
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider existingKeyPairDataProvider
+     *
+     * @param array<string, string> $files
+     */
+    public function testExistingKeyPairIsKept(Block $block, array $files): void
+    {
+        foreach ($files as $name => $contents) {
+            file_put_contents($this->temporaryDirectory . '/' . $name, $contents);
+        }
+        $expectedFiles = ['.env.dist' => ''] + $files;
+        ksort($expectedFiles, SORT_STRING);
+        $interaction = new InMemoryInteraction([self::EXISTING_PASS_PHRASE_QUESTION => 'current-phrase']);
+        $companion = $this->companion($interaction);
+        $extension = new RsaKeys();
+
+        $values = [];
+        foreach ($block->getVariables() as $variable) {
+            $values[$variable->getName()] = $extension->getVariableValue($companion, $block, $variable);
+        }
+
+        $this->assertSame(
+            [
+                'values' => ['KEY_PATH' => null, 'PUB_PATH' => null, 'KEY_PASS' => 'current-phrase'],
+                'questions' => self::EXISTING_PASS_PHRASE_QUESTION . "\n",
+                'files' => $expectedFiles,
+            ],
+            [
+                'values' => $values,
+                'questions' => $interaction->getBuffer(),
+                'files' => $this->readTemporaryDirectory(),
+            ]
+        );
+    }
+
+    /**
+     * @return array<string, array{0: Block, 1: array<string, string>}>
+     */
+    public static function existingKeyPairDataProvider(): array
+    {
+        $keyFiles = ['private.pem' => 'CURRENT PRIVATE KEY', 'public.pem' => 'CURRENT PUBLIC KEY'];
+
+        return [
+            'paths as written' => [self::block(), $keyFiles],
+            'paths in quotes and followed by a comment' => [
+                self::block('"private.pem"', 'public.pem # the public key'),
+                $keyFiles,
+            ],
+            'paths with a variable set in .env' => [
+                self::block('${KEY_PREFIX}private.pem', '${KEY_PREFIX}public.pem'),
+                [
+                    '.env' => "KEY_PREFIX=my-\n",
+                    'my-private.pem' => 'CURRENT PRIVATE KEY',
+                    'my-public.pem' => 'CURRENT PUBLIC KEY',
+                ],
+            ],
+        ];
+    }
+
+    public function testExistingKeyPairKeepsThePassPhraseSetInTheEnvFile(): void
+    {
+        file_put_contents($this->temporaryDirectory . '/.env', "KEY_PASS=stored-phrase\n");
+        file_put_contents($this->temporaryDirectory . '/private.pem', 'CURRENT PRIVATE KEY');
+        file_put_contents($this->temporaryDirectory . '/public.pem', 'CURRENT PUBLIC KEY');
+        $interaction = new InMemoryInteraction();
+
+        $value = (new RsaKeys())->getVariableValue(
+            $this->companion($interaction),
+            self::block(),
+            new Variable('KEY_PASS', '')
+        );
+
+        $this->assertSame(
+            ['value' => 'stored-phrase', 'questions' => ''],
+            ['value' => $value, 'questions' => $interaction->getBuffer()]
+        );
+    }
+
     public function testGenerationFailureKeepsThePassPhraseOutOfTheErrors(): void
     {
         $variables = [
@@ -246,24 +423,31 @@ final class RsaKeysTest extends TestCase
             'only the private key' => [self::block(), ['private.pem'], Extension::VARIABLE_REQUIRED],
             'only the public key' => [self::block(), ['public.pem'], Extension::VARIABLE_REQUIRED],
             'both key files' => [self::block(), ['private.pem', 'public.pem'], Extension::ABSTAIN],
+            'both key files, at the paths Dotenv reads' => [
+                self::block('"private.pem"', 'public.pem # the public key'),
+                ['private.pem', 'public.pem'],
+                Extension::ABSTAIN,
+            ],
         ];
     }
 
     /**
      * @return list<Variable>
      */
-    private static function variables(): array
-    {
+    private static function variables(
+        string $privateKeyPath = 'private.pem',
+        string $publicKeyPath = 'public.pem'
+    ): array {
         return [
-            new Variable('KEY_PATH', 'private.pem'),
-            new Variable('PUB_PATH', 'public.pem'),
+            new Variable('KEY_PATH', $privateKeyPath),
+            new Variable('PUB_PATH', $publicKeyPath),
             new Variable('KEY_PASS', ''),
         ];
     }
 
-    private static function block(): Block
+    private static function block(string $privateKeyPath = 'private.pem', string $publicKeyPath = 'public.pem'): Block
     {
-        return new Block('Keys', '', self::variables(), [
+        return new Block('Keys', '', self::variables($privateKeyPath, $publicKeyPath), [
             new Attribute('rsa-pair', ['KEY_PATH', 'PUB_PATH', 'KEY_PASS'], []),
         ]);
     }

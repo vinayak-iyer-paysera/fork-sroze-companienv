@@ -141,6 +141,33 @@ class Companion
         return $variablesInFile;
     }
 
+    /**
+     * The .env.dist value as Dotenv will read it in .env, after the current .env and the .env.dist defaults
+     * before it that .env does not set yet; as written when Dotenv cannot read it.
+     */
+    public function resolveDistValue(Variable $variable) : string
+    {
+        $definedVariables = $this->getDefinedVariablesHash();
+        $precedingLines = $this->fileSystem->exists($this->envFileName)
+            ? $this->fileSystem->getContents($this->envFileName) . "\n"
+            : '';
+        foreach ($this->reference->getBlocks() as $block) {
+            foreach ($block->getVariables() as $distVariable) {
+                if ($distVariable->getName() === $variable->getName()) {
+                    break 2;
+                }
+
+                if (!array_key_exists($distVariable->getName(), $definedVariables)) {
+                    $value = (string) $distVariable->getValue();
+                    $formattedValue = (new ValueFormatter($value))->formatValue($value);
+                    $precedingLines .= $distVariable->getName() . '=' . $formattedValue . "\n";
+                }
+            }
+        }
+
+        return (string) ($variable->getDotenvValue($precedingLines) ?? $variable->getValue());
+    }
+
     public function askConfirmation(string $question) : bool
     {
         return $this->interaction->askConfirmation($question);
