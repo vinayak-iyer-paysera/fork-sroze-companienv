@@ -216,6 +216,45 @@ final class ApplicationTest extends TestCase
                 ],
                 ['cert.pem' => 'CERTIFICATE', 'key.pem' => 'KEY'],
             ],
+            'file-to-propagate with a variable in its .env.dist path' => [
+                "## Keys\n#+file-to-propagate(KEY_PATH)\nKEY_PATH=\${KEY_DIR}/key.pem\n",
+                [],
+                [
+                    '.env' => "KEY_DIR=keys\nKEY_PATH=\${KEY_DIR}/key.pem\n",
+                    '.env.dist' => "## Keys\n#+file-to-propagate(KEY_PATH)\nKEY_PATH=\${KEY_DIR}/key.pem\n",
+                ],
+                ['.env' => "KEY_DIR=keys\n"],
+            ],
+            'rsa-pair at the paths set in .env' => [
+                $rsaPair,
+                [],
+                [
+                    '.env' => "KEY_PATH=my-private.pem\nPUB_PATH=my-public.pem\nKEY_PASS=stored-phrase\n",
+                    '.env.dist' => $rsaPair,
+                    'my-private.pem' => 'KEY',
+                    'my-public.pem' => 'KEY',
+                ],
+                [
+                    '.env' => "KEY_PATH=my-private.pem\nPUB_PATH=my-public.pem\nKEY_PASS=stored-phrase\n",
+                    'my-private.pem' => 'KEY',
+                    'my-public.pem' => 'KEY',
+                ],
+            ],
+            'ssl-certificate at the paths set in .env' => [
+                $sslCertificate,
+                [],
+                [
+                    '.env' => "CERT_KEY_PATH=my-key.pem\nCERT_PATH=my-cert.pem\nCERT_DOMAIN=example.com\n",
+                    '.env.dist' => $sslCertificate,
+                    'my-cert.pem' => 'CERTIFICATE',
+                    'my-key.pem' => 'KEY',
+                ],
+                [
+                    '.env' => "CERT_KEY_PATH=my-key.pem\nCERT_PATH=my-cert.pem\nCERT_DOMAIN=example.com\n",
+                    'my-cert.pem' => 'CERTIFICATE',
+                    'my-key.pem' => 'KEY',
+                ],
+            ],
             'file-to-propagate' => [
                 $fileToPropagate,
                 [],

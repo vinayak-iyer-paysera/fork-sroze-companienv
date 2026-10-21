@@ -21,15 +21,17 @@ class FileToPropagate implements Extension
             return null;
         }
 
-        $definedVariablesHash = $companion->getDefinedVariablesHash();
+        $currentValue = $companion->getDefinedVariablesHash()[$variable->getName()] ?? null;
         $fileSystem = $companion->getFileSystem();
-        $filename = $this->getFilePath($companion, $variable, $definedVariablesHash[$variable->getName()] ?? null);
+        $filename = $this->getFilePath($companion, $variable, $currentValue);
         if ('' === $filename) {
             return null;
         }
 
+        // A path set in .env stays; otherwise .env gets the .env.dist one as written
+        $value = $currentValue ?: $variable->getValue();
         if ($fileSystem->exists($filename)) {
-            return $filename;
+            return $value;
         }
 
         try {
@@ -37,7 +39,7 @@ class FileToPropagate implements Extension
                 '<comment>'.$variable->getName().'</comment>: What is the path of your downloaded file? '
             );
         } catch (UnansweredQuestionException $exception) {
-            return $filename;
+            return $value;
         }
 
         if (!$fileSystem->exists($downloadedFilePath, false)) {
@@ -51,7 +53,7 @@ class FileToPropagate implements Extension
             ));
         }
 
-        return $filename;
+        return $value;
     }
 
     /**

@@ -19,6 +19,8 @@ class Companion
     private $reference;
     private $extension;
     private $envFileName;
+    private $resolvedDistValues = [];
+    private $resolvedDistValuesEnv;
 
     public function __construct(FileSystem $fileSystem, Interaction $interaction, Extension $extension, string $envFileName = '.env', string $distFileName = '.env.dist')
     {
@@ -142,30 +144,93 @@ class Companion
     }
 
     /**
-     * The .env.dist value as Dotenv will read it in .env, after the current .env and the .env.dist defaults
-     * before it that .env does not set yet; as written when Dotenv cannot read it.
+     * The .env.dist value as Dotenv will read it in .env, as written when Dotenv cannot read it. A variable it
+     * refers to has its .env value or, when .env does not set it, its .env.dist default before it, resolved the
+     * same way. Only those defaults are resolved, so the command of any other one does not run.
      */
     public function resolveDistValue(Variable $variable) : string
     {
-        $definedVariables = $this->getDefinedVariablesHash();
-        $precedingLines = $this->fileSystem->exists($this->envFileName)
-            ? $this->fileSystem->getContents($this->envFileName) . "\n"
-            : '';
+        $value = (string) $variable->getValue();
+        if (false === strpos($value, '$')) {
+            return (string) ($variable->getDotenvValue() ?? $value);
+        }
+
+        // Resolved once for each .env content, so that a command does not run again until .env changes
+        $envContents = $this->fileSystem->exists($this->envFileName)
+            ? $this->fileSystem->getContents($this->envFileName)
+            : null;
+        if ($envContents !== $this->resolvedDistValuesEnv) {
+            $this->resolvedDistValues = [];
+            $this->resolvedDistValuesEnv = $envContents;
+        }
+
+        $key = $variable->getName() . '=' . $value;
+        if (!array_key_exists($key, $this->resolvedDistValues)) {
+            $this->resolvedDistValues[$key] = $this->parseDistValue($variable);
+        }
+
+        return $this->resolvedDistValues[$key];
+    }
+
+    private function parseDistValue(Variable $variable) : string
+    {
+        $value = (string) $variable->getValue();
+        $references = $this->getDefinedVariablesHash();
         foreach ($this->reference->getBlocks() as $block) {
             foreach ($block->getVariables() as $distVariable) {
                 if ($distVariable->getName() === $variable->getName()) {
                     break 2;
                 }
 
-                if (!array_key_exists($distVariable->getName(), $definedVariables)) {
-                    $value = (string) $distVariable->getValue();
-                    $formattedValue = (new ValueFormatter($value))->formatValue($value);
-                    $precedingLines .= $distVariable->getName() . '=' . $formattedValue . "\n";
+                if (!array_key_exists($distVariable->getName(), $references)) {
+                    $references[$distVariable->getName()] = $distVariable;
                 }
             }
         }
 
-        return (string) ($variable->getDotenvValue($precedingLines) ?? $variable->getValue());
+        if (false === strpos($value, '$(')) {
+            // Dotenv shows the variables it reads in the value by reading stand-ins, which run nothing
+            $standIns = [];
+            $nonce = bin2hex(random_bytes(4));
+            foreach (array_keys($references) as $index => $name) {
+                $standIns[$name] = sprintf('companienv-%s-%d-', $nonce, $index);
+            }
+            $readValue = (string) $variable->getDotenvValue($this->getDotenvLines($standIns));
+            foreach ($standIns as $name => $standIn) {
+                if (false === strpos($readValue, $standIn)) {
+                    unset($references[$name]);
+                }
+            }
+        } else {
+            // A command gets every .env value, which runs nothing, and the .env.dist defaults written as $NAME in it
+            preg_match_all('/\$\{?(_*[A-Za-z][A-Za-z0-9_]*)/', $value, $matches);
+            foreach ($references as $name => $reference) {
+                if ($reference instanceof Variable && !in_array($name, $matches[1], true)) {
+                    unset($references[$name]);
+                }
+            }
+        }
+
+        foreach ($references as $name => $reference) {
+            if ($reference instanceof Variable) {
+                $references[$name] = $this->resolveDistValue($reference);
+            }
+        }
+
+        return (string) ($variable->getDotenvValue($this->getDotenvLines($references)) ?? $value);
+    }
+
+    /**
+     * @param array<string, string> $values
+     */
+    private function getDotenvLines(array $values) : string
+    {
+        $lines = '';
+        foreach ($values as $name => $value) {
+            $lines .= $name . '=' . (new ValueFormatter())->formatValue((string) $value, true) . "\n";
+        }
+
+        return $lines;
     }
 
     public function askConfirmation(string $question) : bool

@@ -170,6 +170,20 @@ final class FileToPropagateTest extends TestCase
         );
     }
 
+    public function testGetVariableValueKeepsTheDistPathAsWritten(): void
+    {
+        $fileSystem = $this->fileSystem(['.env' => "KEY_DIR=keys\n", 'keys/target.pem' => 'CURRENT']);
+
+        $this->assertSame(
+            '${KEY_DIR}/target.pem',
+            (new FileToPropagate())->getVariableValue(
+                new Companion($fileSystem, new InMemoryInteraction(), new Chained()),
+                self::block(),
+                new Variable('KEY_PATH', '${KEY_DIR}/target.pem')
+            )
+        );
+    }
+
     /**
      * @return array<string, array{0: Block, 1: array<string, string>, 2: string|null, 3: int}>
      */

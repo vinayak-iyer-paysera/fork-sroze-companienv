@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Companienv;
 
+use Companienv\DotEnv\Variable;
 use Companienv\Extension\Chained;
 use Companienv\IO\InMemoryFileSystem;
 use Companienv\IO\InMemoryInteraction;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Dotenv\Dotenv;
 
 final class CompanionTest extends TestCase
 {
@@ -348,7 +350,7 @@ final class CompanionTest extends TestCase
                     'target.pem' => 'CURRENT',
                 ],
                 ["Let's fix this? (y)" => 'y'],
-                "KEY_PATH=target.pem\n",
+                "KEY_PATH=target.pem # the deploy key\n",
                 $missingOne . "\n<info>Keys</info>\n\n",
             ],
             'file to propagate missing: copied to the path its .env.dist default names' => [
@@ -360,7 +362,7 @@ final class CompanionTest extends TestCase
                     "Let's fix this? (y)" => 'y',
                     'KEY_PATH: What is the path of your downloaded file?' => '/downloads/key.pem',
                 ],
-                "KEY_PATH=target.pem\n",
+                "KEY_PATH=target.pem # the deploy key\n",
                 $missingOne . "\n<info>Keys</info>\n\nKEY_PATH: What is the path of your downloaded file?\n",
             ],
             'file to propagate without a path: the variable is asked like any other' => [
@@ -492,7 +494,7 @@ final class CompanionTest extends TestCase
         (new Companion($fileSystem, $interaction, new Chained(Application::defaultExtensions())))->fillGaps();
 
         $this->assertSame(
-            ['.env' => "KEY_DIR=keys\nKEY_PATH=keys/target.pem\n", 'keys/target.pem' => 'DOWNLOADED'],
+            ['.env' => "KEY_DIR=keys\nKEY_PATH=\${KEY_DIR}/target.pem\n", 'keys/target.pem' => 'DOWNLOADED'],
             [
                 '.env' => $fileSystem->getContents('.env'),
                 'keys/target.pem' => $fileSystem->exists('keys/target.pem')
@@ -500,5 +502,120 @@ final class CompanionTest extends TestCase
                     : null,
             ]
         );
+    }
+
+    /**
+     * @dataProvider distValueDataProvider
+     */
+    public function testResolveDistValueRunsOnlyTheCommandsTheValueReads(
+        string $value,
+        string $expectedValue,
+        int $expectedRuns
+    ): void {
+        $log = (string) tempnam(sys_get_temp_dir(), 'companienv-');
+        $fileSystem = new InMemoryFileSystem();
+        $fileSystem->write('.env.dist', str_replace('{log}', $log, "RUN=\"\$(echo x >> {log}; echo run)\"\n"
+            . "LITERAL='\$(echo x >> {log})'\nBASE=dist\nKEY_DIR=\${BASE}/rsa\nA=\${RUN}a\nB=\${RUN}b\n"
+            . "KEY_PATH={$value}\n"));
+        $fileSystem->write('.env', "BASE=custom\n");
+        $companion = new Companion($fileSystem, new InMemoryInteraction(), new Chained());
+
+        try {
+            $values = [
+                $companion->resolveDistValue(new Variable('KEY_PATH', $value)),
+                $companion->resolveDistValue(new Variable('KEY_PATH', $value)),
+            ];
+            $runs = substr_count((string) file_get_contents($log), 'x');
+        } finally {
+            unlink($log);
+        }
+
+        $expectedValue = str_replace('{log}', $log, $expectedValue);
+        $this->assertSame(
+            ['values' => [$expectedValue, $expectedValue], 'runs' => $expectedRuns],
+            ['values' => $values, 'runs' => $runs]
+        );
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string, 2: int}>
+     */
+    public static function distValueDataProvider(): array
+    {
+        return [
+            'no reference' => ['keys/private.pem', 'keys/private.pem', 0],
+            'chain of references' => ['${KEY_DIR}/private.pem # the key', 'custom/rsa/private.pem', 0],
+            'reference in single quotes' => ["'\${RUN}/private.pem'", '${RUN}/private.pem', 0],
+            'reference in a comment' => ['keys/private.pem # $RUN', 'keys/private.pem', 0],
+            'reference to a command' => ['${RUN}/private.pem', 'run/private.pem', 1],
+            'two references to a command' => ['${A}/${B}/private.pem', 'runa/runb/private.pem', 1],
+            'command naming no variable' => ['"$(echo keys)/private.pem"', 'keys/private.pem', 0],
+            'command with a reference' => ['"$(echo ${KEY_DIR})/private.pem"', 'custom/rsa/private.pem', 0],
+            'command reading a .env value' => ['"$(printenv BASE)/private.pem"', 'custom/private.pem', 0],
+            'command reading a .env value it does not name' => [
+                '"$(env | grep -c =custom)/private.pem"',
+                '1/private.pem',
+                0,
+            ],
+            'command next to the name of a default' => ['"$(echo keys)/RUN/private.pem"', 'keys/RUN/private.pem', 0],
+            'command with the name of a default in a comment' => [
+                '"$(echo keys)/private.pem" # RUN',
+                'keys/private.pem',
+                0,
+            ],
+            'command with a reference to a command' => ['"$(echo ${A})/private.pem"', 'runa/private.pem', 1],
+        ];
+    }
+
+    public function testFillGapsResolvesADistPathAgainstTheValuesWrittenBeforeIt(): void
+    {
+        $fileSystem = new InMemoryFileSystem();
+        $fileSystem->write(
+            '.env.dist',
+            "KEY_DIR=keys\n## Keys\n#+file-to-propagate(KEY_PATH)\nKEY_PATH=\${KEY_DIR}/target.pem\n"
+        );
+        $fileSystem->write('/downloads/key.pem', 'DOWNLOADED');
+        $interaction = new InMemoryInteraction([
+            "Let's fix this? (y)" => 'y',
+            'KEY_DIR ? (keys)' => 'custom',
+            'KEY_PATH: What is the path of your downloaded file?' => '/downloads/key.pem',
+        ]);
+
+        (new Companion($fileSystem, $interaction, new Chained(Application::defaultExtensions())))->fillGaps();
+
+        $this->assertSame(
+            [
+                '.env' => "KEY_DIR=custom\nKEY_PATH=\${KEY_DIR}/target.pem\n",
+                'custom/target.pem' => 'DOWNLOADED',
+                'keys/target.pem' => false,
+            ],
+            [
+                '.env' => $fileSystem->getContents('.env'),
+                'custom/target.pem' => $fileSystem->exists('custom/target.pem')
+                    ? $fileSystem->getContents('custom/target.pem')
+                    : null,
+                'keys/target.pem' => $fileSystem->exists('keys/target.pem'),
+            ]
+        );
+    }
+
+    public function testResolveDistValueReadsAReferenceToAQuotedCommandAsDotenvDoes(): void
+    {
+        $log = (string) tempnam(sys_get_temp_dir(), 'companienv-');
+        $distFile = "LITERAL='\$(echo x >> {$log})'\nKEY_PATH=\${LITERAL}/private.pem\n";
+        $fileSystem = new InMemoryFileSystem();
+        $fileSystem->write('.env.dist', $distFile);
+        $companion = new Companion($fileSystem, new InMemoryInteraction(), new Chained());
+
+        try {
+            $value = $companion->resolveDistValue(new Variable('KEY_PATH', '${LITERAL}/private.pem'));
+            $runs = substr_count((string) file_get_contents($log), 'x');
+            $dotenvValue = (new Dotenv())->parse($distFile)['KEY_PATH'];
+            $dotenvRuns = substr_count((string) file_get_contents($log), 'x') - $runs;
+        } finally {
+            unlink($log);
+        }
+
+        $this->assertSame(['value' => $dotenvValue, 'runs' => $dotenvRuns], ['value' => $value, 'runs' => $runs]);
     }
 }

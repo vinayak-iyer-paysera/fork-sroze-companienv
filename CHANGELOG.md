@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RSA key and SSL certificate generation failed with `symfony/process` 5 and later.
 - Declining RSA key or SSL certificate generation asked the same question again for the other variables of the pair.
 - An RSA key pair or SSL certificate whose files exist was offered for generation again when one of its variables was missing from `.env`; accepting replaced the files, and `.env` could keep a pass phrase that no longer opened the key. Such a variable is now asked like any other, and the pass phrase of an existing key pair is asked without a default, so a run without interaction stops there.
+- `#+rsa-pair` and `#+ssl-certificate` looked for their files at the `.env.dist` paths only: a key pair or certificate at the paths set in `.env` was reported as missing configuration on every run, and accepting generated new files at the `.env.dist` paths and wrote those paths to `.env`. The files are now looked for and generated at the paths set in `.env`, or at the `.env.dist` paths when `.env` sets none, and a path set in `.env` is kept.
 - `#+rsa-pair`, `#+ssl-certificate` and `#+file-to-propagate` read a `.env.dist` path as Dotenv reads it: quotes and an inline comment are not part of it, and a `${VAR}` in it takes its value from `.env` or from an earlier `.env.dist` default.
 - A `#+file-to-propagate` file that existed was reported as missing configuration on every run.
 - Without interaction, a question with no default (the RSA pass phrase, the SSL domain name) failed with a `TypeError` in the Composer script and was asked again without end in the console command. It now fails with a `Companienv\IO\UnansweredQuestionException`, a `RuntimeException` that names the question.
@@ -38,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PHP 8.4 deprecations for implicitly nullable parameters.
 
 ### Security
-- Key paths, the pass phrase and the domain name are passed to openssl as arguments instead of a shell command line. A `$(…)` in a `.env.dist` path is still run by Dotenv, as in any `.env.dist` default.
+- Key paths, the pass phrase and the domain name are passed to openssl as arguments instead of a shell command line. A `$(…)` in a `.env.dist` path that `.env` does not set is still run, now by Dotenv, as in any `.env.dist` default. So is one in a `.env.dist` default that `.env` does not set and that the path uses, directly or through another such default: a path without `$(…)` uses the variables Dotenv reads in it, and one with a `$(…)` uses those written in it as `$NAME` or `${NAME}`, also in quotes or a comment. The commands of the other defaults do not run.
 - The domain name is escaped for openssl's subject syntax, so `/`, `+` and `\` in it no longer add subject fields or make openssl fail.
 - The RSA pass phrase is passed to openssl on standard input instead of the command line. When key generation fails, the exception no longer wraps Symfony's process exception, whose message named the pass phrase; it carries openssl's error itself.
 - A value written to `.env` that contains `$(…)` is no longer run as a shell command when Dotenv reads the file, unless it is the variable's `.env.dist` default.

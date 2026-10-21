@@ -60,10 +60,7 @@ class RsaKeys implements Extension
 
         $fileSystem = $companion->getFileSystem();
         $passPhrase = $this->askPassPhrase($companion);
-        $privateKeyVariable = $block->getVariable($attribute->getVariableNames()[0]);
-        $publicKeyVariable = $block->getVariable($attribute->getVariableNames()[1]);
-        $privateKeyPath = $companion->resolveDistValue($privateKeyVariable);
-        $publicKeyPath = $companion->resolveDistValue($publicKeyVariable);
+        list($privateKeyPath, $publicKeyPath) = $this->getPaths($companion, $block, $attribute);
 
         try {
             (new Process(
@@ -96,8 +93,12 @@ class RsaKeys implements Extension
             );
         }
 
-        $this->populatedVariables[$privateKeyVariable->getName()] = $privateKeyVariable->getValue();
-        $this->populatedVariables[$publicKeyVariable->getName()] = $publicKeyVariable->getValue();
+        // A path set in .env stays; otherwise .env gets the .env.dist one as written
+        $definedVariables = $companion->getDefinedVariablesHash();
+        foreach (array_slice($attribute->getVariableNames(), 0, 2) as $pathName) {
+            $this->populatedVariables[$pathName] = ($definedVariables[$pathName] ?? '')
+                ?: $block->getVariable($pathName)->getValue();
+        }
         $this->populatedVariables[$attribute->getVariableNames()[2]] = $passPhrase;
 
         return $this->populatedVariables[$variable->getName()];
@@ -138,10 +139,22 @@ class RsaKeys implements Extension
 
     private function filesExist(Companion $companion, Block $block, Attribute $attribute) : bool
     {
-        $fileSystem = $companion->getFileSystem();
-        $variableNames = $attribute->getVariableNames();
+        list($privateKeyPath, $publicKeyPath) = $this->getPaths($companion, $block, $attribute);
 
-        return $fileSystem->exists($companion->resolveDistValue($block->getVariable($variableNames[0])))
-            && $fileSystem->exists($companion->resolveDistValue($block->getVariable($variableNames[1])));
+        return $companion->getFileSystem()->exists($privateKeyPath)
+            && $companion->getFileSystem()->exists($publicKeyPath);
+    }
+
+    /**
+     * @return string[] The paths set in .env, or the .env.dist ones as Dotenv reads them when .env sets none
+     */
+    private function getPaths(Companion $companion, Block $block, Attribute $attribute) : array
+    {
+        $definedVariables = $companion->getDefinedVariablesHash();
+
+        return array_map(function (string $name) use ($companion, $block, $definedVariables) : string {
+            return (string) (($definedVariables[$name] ?? '')
+                ?: $companion->resolveDistValue($block->getVariable($name)));
+        }, array_slice($attribute->getVariableNames(), 0, 2));
     }
 }

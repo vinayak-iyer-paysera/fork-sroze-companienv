@@ -225,6 +225,13 @@ final class SslCertificateTest extends TestCase
                 'key.pem',
                 'certificate.pem',
             ],
+            'empty paths in .env' => [
+                'key.pem',
+                'certificate.pem',
+                ['.env' => "CERT_KEY_PATH=\nCERT_PATH=\n"],
+                'key.pem',
+                'certificate.pem',
+            ],
             'paths with a variable set in .env' => [
                 '${CERT_PREFIX}key.pem',
                 '${CERT_PREFIX}certificate.pem',
@@ -311,7 +318,54 @@ final class SslCertificateTest extends TestCase
                     'my-key.pem' => 'CURRENT KEY',
                 ],
             ],
+            'paths set in .env' => [
+                self::block(),
+                [
+                    '.env' => "CERT_KEY_PATH=my-key.pem\nCERT_PATH=my-certificate.pem\n",
+                    'my-certificate.pem' => 'CURRENT CERTIFICATE',
+                    'my-key.pem' => 'CURRENT KEY',
+                ],
+            ],
         ];
+    }
+
+    public function testGeneratedCertificateAtThePathsSetInTheEnvFile(): void
+    {
+        file_put_contents(
+            $this->temporaryDirectory . '/.env',
+            "CERT_KEY_PATH=my-key.pem\nCERT_PATH=my-certificate.pem\nCERT_DOMAIN=example.com\n"
+        );
+        $interaction = new InMemoryInteraction([self::CONFIRMATION => 'y', self::DOMAIN_QUESTION => 'localhost']);
+        $companion = $this->companion($interaction);
+        $extension = new SslCertificate();
+        $block = self::block();
+
+        $values = [];
+        foreach ($block->getVariables() as $variable) {
+            $values[$variable->getName()] = $extension->getVariableValue($companion, $block, $variable);
+        }
+
+        $generatedFiles = $this->readTemporaryDirectory();
+        $this->assertSame(
+            [
+                'values' => [
+                    'CERT_KEY_PATH' => 'my-key.pem',
+                    'CERT_PATH' => 'my-certificate.pem',
+                    'CERT_DOMAIN' => 'localhost',
+                ],
+                'files' => ['.env', '.env.dist', 'my-certificate.pem', 'my-key.pem'],
+                'key matches' => true,
+            ],
+            [
+                'values' => $values,
+                'files' => array_keys($generatedFiles),
+                'key matches' => isset($generatedFiles['my-certificate.pem'], $generatedFiles['my-key.pem'])
+                    && openssl_x509_check_private_key(
+                        $generatedFiles['my-certificate.pem'],
+                        $generatedFiles['my-key.pem']
+                    ),
+            ]
+        );
     }
 
     public function testGenerationFailure(): void
@@ -343,10 +397,17 @@ final class SslCertificateTest extends TestCase
      *
      * @param list<string> $existingFiles
      */
-    public function testIsVariableRequiringValue(Block $block, array $existingFiles, int $expected): void
-    {
+    public function testIsVariableRequiringValue(
+        Block $block,
+        array $existingFiles,
+        int $expected,
+        string $env = ''
+    ): void {
         foreach ($existingFiles as $name) {
             touch($this->temporaryDirectory . '/' . $name);
+        }
+        if ('' !== $env) {
+            file_put_contents($this->temporaryDirectory . '/.env', $env);
         }
 
         $this->assertSame(
@@ -360,7 +421,7 @@ final class SslCertificateTest extends TestCase
     }
 
     /**
-     * @return array<string, array{0: Block, 1: list<string>, 2: int}>
+     * @return array<string, array{0: Block, 1: list<string>, 2: int, 3?: string}>
      */
     public static function existingFilesDataProvider(): array
     {
@@ -374,6 +435,30 @@ final class SslCertificateTest extends TestCase
                 self::block('"key.pem"', 'certificate.pem # the certificate'),
                 ['key.pem', 'certificate.pem'],
                 Extension::ABSTAIN,
+            ],
+            'key and certificate, at the paths set in .env' => [
+                self::block(),
+                ['my-key.pem', 'my-certificate.pem'],
+                Extension::ABSTAIN,
+                "CERT_KEY_PATH=my-key.pem\nCERT_PATH=my-certificate.pem\n",
+            ],
+            'key and certificate at the .env.dist paths only, .env sets others' => [
+                self::block(),
+                ['key.pem', 'certificate.pem'],
+                Extension::VARIABLE_REQUIRED,
+                "CERT_KEY_PATH=my-key.pem\nCERT_PATH=my-certificate.pem\n",
+            ],
+            'empty paths in .env: the .env.dist paths' => [
+                self::block(),
+                ['key.pem', 'certificate.pem'],
+                Extension::ABSTAIN,
+                "CERT_KEY_PATH=\nCERT_PATH=\n",
+            ],
+            'empty paths in .env, no file at the .env.dist paths' => [
+                self::block(),
+                [],
+                Extension::VARIABLE_REQUIRED,
+                "CERT_KEY_PATH=\nCERT_PATH=\n",
             ],
         ];
     }

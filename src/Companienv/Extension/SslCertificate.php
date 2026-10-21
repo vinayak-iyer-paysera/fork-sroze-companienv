@@ -48,14 +48,13 @@ class SslCertificate implements Extension
         }
 
         $domainName = $companion->ask('Enter the domain name for which to generate the self-signed SSL certificate: ');
-        $privateKeyVariable = $block->getVariable($attribute->getVariableNames()[0]);
-        $certificateVariable = $block->getVariable($attribute->getVariableNames()[1]);
+        list($privateKeyPath, $certificatePath) = $this->getPaths($companion, $block, $attribute);
 
         try {
             (new Process([
                 'openssl', 'req', '-x509', '-nodes', '-days', '3650', '-newkey', 'rsa:2048',
-                '-keyout', $companion->getFileSystem()->realpath($companion->resolveDistValue($privateKeyVariable)),
-                '-out', $companion->getFileSystem()->realpath($companion->resolveDistValue($certificateVariable)),
+                '-keyout', $companion->getFileSystem()->realpath($privateKeyPath),
+                '-out', $companion->getFileSystem()->realpath($certificatePath),
                 '-subj', '/C=SS/ST=SS/L=SelfSignedCity/O=SelfSignedOrg/CN='.addcslashes($domainName, '\\/+'),
             ]))->mustRun();
         } catch (ProcessRuntimeException $exception) {
@@ -66,8 +65,12 @@ class SslCertificate implements Extension
             );
         }
 
-        $this->populatedVariables[$privateKeyVariable->getName()] = $privateKeyVariable->getValue();
-        $this->populatedVariables[$certificateVariable->getName()] = $certificateVariable->getValue();
+        // A path set in .env stays; otherwise .env gets the .env.dist one as written
+        $definedVariables = $companion->getDefinedVariablesHash();
+        foreach (array_slice($attribute->getVariableNames(), 0, 2) as $pathName) {
+            $this->populatedVariables[$pathName] = ($definedVariables[$pathName] ?? '')
+                ?: $block->getVariable($pathName)->getValue();
+        }
         $this->populatedVariables[$attribute->getVariableNames()[2]] = $domainName;
 
         return $this->populatedVariables[$variable->getName()];
@@ -91,10 +94,22 @@ class SslCertificate implements Extension
 
     private function filesExist(Companion $companion, Block $block, Attribute $attribute) : bool
     {
-        $fileSystem = $companion->getFileSystem();
-        $variableNames = $attribute->getVariableNames();
+        list($privateKeyPath, $certificatePath) = $this->getPaths($companion, $block, $attribute);
 
-        return $fileSystem->exists($companion->resolveDistValue($block->getVariable($variableNames[0])))
-            && $fileSystem->exists($companion->resolveDistValue($block->getVariable($variableNames[1])));
+        return $companion->getFileSystem()->exists($privateKeyPath)
+            && $companion->getFileSystem()->exists($certificatePath);
+    }
+
+    /**
+     * @return string[] The paths set in .env, or the .env.dist ones as Dotenv reads them when .env sets none
+     */
+    private function getPaths(Companion $companion, Block $block, Attribute $attribute) : array
+    {
+        $definedVariables = $companion->getDefinedVariablesHash();
+
+        return array_map(function (string $name) use ($companion, $block, $definedVariables) : string {
+            return (string) (($definedVariables[$name] ?? '')
+                ?: $companion->resolveDistValue($block->getVariable($name)));
+        }, array_slice($attribute->getVariableNames(), 0, 2));
     }
 }

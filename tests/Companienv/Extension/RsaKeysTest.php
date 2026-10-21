@@ -241,6 +241,13 @@ final class RsaKeysTest extends TestCase
                 'private.pem',
                 'public.pem',
             ],
+            'empty paths in .env' => [
+                'private.pem',
+                'public.pem',
+                ['.env' => "KEY_PATH=\nPUB_PATH=\n"],
+                'private.pem',
+                'public.pem',
+            ],
             'paths with a variable set in .env' => [
                 '${KEY_PREFIX}private.pem',
                 '${KEY_PREFIX}public.pem',
@@ -324,7 +331,55 @@ final class RsaKeysTest extends TestCase
                     'my-public.pem' => 'CURRENT PUBLIC KEY',
                 ],
             ],
+            'paths set in .env' => [
+                self::block(),
+                [
+                    '.env' => "KEY_PATH=my-private.pem\nPUB_PATH=my-public.pem\n",
+                    'my-private.pem' => 'CURRENT PRIVATE KEY',
+                    'my-public.pem' => 'CURRENT PUBLIC KEY',
+                ],
+            ],
         ];
+    }
+
+    public function testGeneratedKeyPairAtThePathsSetInTheEnvFile(): void
+    {
+        file_put_contents(
+            $this->temporaryDirectory . '/.env',
+            "KEY_PATH=my-private.pem\nPUB_PATH=my-public.pem\nKEY_PASS=former-phrase\n"
+        );
+        $interaction = new InMemoryInteraction([
+            self::CONFIRMATION => 'y',
+            self::PASS_PHRASE_QUESTION => 'secret-phrase',
+        ]);
+        $companion = $this->companion($interaction);
+        $extension = new RsaKeys();
+        $block = self::block();
+
+        $values = [];
+        foreach ($block->getVariables() as $variable) {
+            $values[$variable->getName()] = $extension->getVariableValue($companion, $block, $variable);
+        }
+
+        $generatedFiles = $this->readTemporaryDirectory();
+        $generatedKey = openssl_pkey_get_private($generatedFiles['my-private.pem'] ?? '', 'secret-phrase');
+        $this->assertSame(
+            [
+                'values' => [
+                    'KEY_PATH' => 'my-private.pem',
+                    'PUB_PATH' => 'my-public.pem',
+                    'KEY_PASS' => 'secret-phrase',
+                ],
+                'files' => ['.env', '.env.dist', 'my-private.pem', 'my-public.pem'],
+                'public key of the private key' => true,
+            ],
+            [
+                'values' => $values,
+                'files' => array_keys($generatedFiles),
+                'public key of the private key' => $generatedKey !== false
+                    && openssl_pkey_get_details($generatedKey)['key'] === ($generatedFiles['my-public.pem'] ?? null),
+            ]
+        );
     }
 
     public function testExistingKeyPairKeepsThePassPhraseSetInTheEnvFile(): void
@@ -396,10 +451,17 @@ final class RsaKeysTest extends TestCase
      *
      * @param list<string> $existingFiles
      */
-    public function testIsVariableRequiringValue(Block $block, array $existingFiles, int $expected): void
-    {
+    public function testIsVariableRequiringValue(
+        Block $block,
+        array $existingFiles,
+        int $expected,
+        string $env = ''
+    ): void {
         foreach ($existingFiles as $name) {
             touch($this->temporaryDirectory . '/' . $name);
+        }
+        if ('' !== $env) {
+            file_put_contents($this->temporaryDirectory . '/.env', $env);
         }
 
         $this->assertSame(
@@ -413,7 +475,7 @@ final class RsaKeysTest extends TestCase
     }
 
     /**
-     * @return array<string, array{0: Block, 1: list<string>, 2: int}>
+     * @return array<string, array{0: Block, 1: list<string>, 2: int, 3?: string}>
      */
     public static function existingFilesDataProvider(): array
     {
@@ -427,6 +489,30 @@ final class RsaKeysTest extends TestCase
                 self::block('"private.pem"', 'public.pem # the public key'),
                 ['private.pem', 'public.pem'],
                 Extension::ABSTAIN,
+            ],
+            'both key files, at the paths set in .env' => [
+                self::block(),
+                ['my-private.pem', 'my-public.pem'],
+                Extension::ABSTAIN,
+                "KEY_PATH=my-private.pem\nPUB_PATH=my-public.pem\n",
+            ],
+            'both key files at the .env.dist paths only, .env sets others' => [
+                self::block(),
+                ['private.pem', 'public.pem'],
+                Extension::VARIABLE_REQUIRED,
+                "KEY_PATH=my-private.pem\nPUB_PATH=my-public.pem\n",
+            ],
+            'empty paths in .env: the .env.dist paths' => [
+                self::block(),
+                ['private.pem', 'public.pem'],
+                Extension::ABSTAIN,
+                "KEY_PATH=\nPUB_PATH=\n",
+            ],
+            'empty paths in .env, no key file at the .env.dist paths' => [
+                self::block(),
+                [],
+                Extension::VARIABLE_REQUIRED,
+                "KEY_PATH=\nPUB_PATH=\n",
             ],
         ];
     }
