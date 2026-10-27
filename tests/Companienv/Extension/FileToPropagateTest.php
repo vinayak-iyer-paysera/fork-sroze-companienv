@@ -20,7 +20,7 @@ final class FileToPropagateTest extends TestCase
 {
     use TemporaryDirectory;
 
-    private const QUESTION = 'KEY_PATH: What is the path of your downloaded file?';
+    private const QUESTION = 'KEY_PATH: What is the path of your downloaded file? (leave empty to skip)';
 
     protected function tearDown(): void
     {
@@ -119,6 +119,22 @@ final class FileToPropagateTest extends TestCase
                 self::QUESTION . "\n",
                 ['target.pem' => 'CURRENT', 'custom.pem' => 'DOWNLOADED'],
             ],
+            'empty answer: the file stays missing' => [
+                self::block(),
+                ['.env' => "KEY_PATH=custom.pem\n"],
+                [self::QUESTION => ''],
+                'custom.pem',
+                self::QUESTION . "\n",
+                ['target.pem' => null, 'custom.pem' => null],
+            ],
+            'no answer, as without interaction: the file stays missing' => [
+                self::block(),
+                [],
+                [],
+                'target.pem',
+                self::QUESTION . "\n",
+                ['target.pem' => null, 'custom.pem' => null],
+            ],
         ];
     }
 
@@ -145,6 +161,10 @@ final class FileToPropagateTest extends TestCase
      */
     public function testIsVariableRequiringValue(Block $block, array $files, ?string $currentValue, int $expected): void
     {
+        if (null !== $currentValue) {
+            $files['.env'] = "KEY_PATH={$currentValue}\n";
+        }
+
         $this->assertSame(
             $expected,
             (new FileToPropagate())->isVariableRequiringValue(

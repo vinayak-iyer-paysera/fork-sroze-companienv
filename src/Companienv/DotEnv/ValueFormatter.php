@@ -31,7 +31,9 @@ class ValueFormatter extends DotenvFormatter
 
     private function isReadableReferenceValue(string $value): bool
     {
-        return $value === $this->referenceValue && null !== (new Variable('VALUE', $value))->getDotenvValue();
+        // A default with a $(…) is kept as the file has it, as on 0.0.12, instead of running the command to find out
+        return $value === $this->referenceValue
+            && (false !== strpos($value, '$(') || null !== (new Variable('VALUE', $value))->getDotenvValue());
     }
 
     private function requiresQuotes(string $value): bool

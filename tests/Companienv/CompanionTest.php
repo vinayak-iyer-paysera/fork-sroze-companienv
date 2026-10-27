@@ -13,6 +13,8 @@ use Symfony\Component\Dotenv\Dotenv;
 
 final class CompanionTest extends TestCase
 {
+    private const FILE_QUESTION = 'KEY_PATH: What is the path of your downloaded file? (leave empty to skip)';
+
     /**
      * @dataProvider fillGapsDataProvider
      *
@@ -316,10 +318,10 @@ final class CompanionTest extends TestCase
                 ],
                 [
                     "Let's fix this? (y)" => 'y',
-                    'KEY_PATH: What is the path of your downloaded file?' => '/downloads/key.pem',
+                    self::FILE_QUESTION => '/downloads/key.pem',
                 ],
                 "KEY_PATH=target.pem\n",
-                $missingOne . "\n<info>Keys</info>\n\nKEY_PATH: What is the path of your downloaded file?\n",
+                $missingOne . "\n<info>Keys</info>\n\n" . self::FILE_QUESTION . "\n",
             ],
             'file to propagate at the path set in .env: nothing is asked' => [
                 [
@@ -339,10 +341,10 @@ final class CompanionTest extends TestCase
                 ],
                 [
                     "Let's fix this? (y)" => 'y',
-                    'KEY_PATH: What is the path of your downloaded file?' => '/downloads/key.pem',
+                    self::FILE_QUESTION => '/downloads/key.pem',
                 ],
                 "KEY_PATH=custom.pem # from the vault\n",
-                $missingOne . "\n<info>Keys</info>\n\nKEY_PATH: What is the path of your downloaded file?\n",
+                $missingOne . "\n<info>Keys</info>\n\n" . self::FILE_QUESTION . "\n",
             ],
             'file to propagate present at the path its .env.dist default names' => [
                 [
@@ -360,10 +362,10 @@ final class CompanionTest extends TestCase
                 ],
                 [
                     "Let's fix this? (y)" => 'y',
-                    'KEY_PATH: What is the path of your downloaded file?' => '/downloads/key.pem',
+                    self::FILE_QUESTION => '/downloads/key.pem',
                 ],
                 "KEY_PATH=target.pem # the deploy key\n",
-                $missingOne . "\n<info>Keys</info>\n\nKEY_PATH: What is the path of your downloaded file?\n",
+                $missingOne . "\n<info>Keys</info>\n\n" . self::FILE_QUESTION . "\n",
             ],
             'file to propagate without a path: the variable is asked like any other' => [
                 ['.env.dist' => "## Keys\n#+file-to-propagate(KEY_PATH)\nKEY_PATH=\n"],
@@ -403,7 +405,7 @@ final class CompanionTest extends TestCase
         }
         $interaction = new InMemoryInteraction([
             "Let's fix this? (y)" => 'y',
-            'KEY_PATH: What is the path of your downloaded file?' => '/downloads/key.pem',
+            self::FILE_QUESTION => '/downloads/key.pem',
         ]);
 
         (new Companion($fileSystem, $interaction, new Chained(Application::defaultExtensions())))->fillGaps();
@@ -474,8 +476,17 @@ final class CompanionTest extends TestCase
             ],
             '.env without the pass phrase' => [
                 "KEY_PATH=private.pem\nPUB_PATH=public.pem\n",
-                ['KEY_PASS: What is the pass phrase of the existing keys?' => 'current-phrase'],
+                ['KEY_PASS ?' => 'current-phrase'],
                 "KEY_PATH=private.pem\nPUB_PATH=public.pem\nKEY_PASS=current-phrase\n",
+            ],
+            'empty .env, another path typed for the private key' => [
+                '',
+                [
+                    'KEY_PATH ? (private.pem)' => 'elsewhere.pem',
+                    'PUB_PATH ? (public.pem)' => 'public.pem',
+                    'KEY_PASS ?' => 'current-phrase',
+                ],
+                "KEY_PATH=elsewhere.pem\nPUB_PATH=public.pem\nKEY_PASS=current-phrase\n",
             ],
         ];
     }
@@ -488,7 +499,7 @@ final class CompanionTest extends TestCase
         $fileSystem->write('/downloads/key.pem', 'DOWNLOADED');
         $interaction = new InMemoryInteraction([
             "Let's fix this? (y)" => 'y',
-            'KEY_PATH: What is the path of your downloaded file?' => '/downloads/key.pem',
+            self::FILE_QUESTION => '/downloads/key.pem',
         ]);
 
         (new Companion($fileSystem, $interaction, new Chained(Application::defaultExtensions())))->fillGaps();
@@ -578,7 +589,7 @@ final class CompanionTest extends TestCase
         $interaction = new InMemoryInteraction([
             "Let's fix this? (y)" => 'y',
             'KEY_DIR ? (keys)' => 'custom',
-            'KEY_PATH: What is the path of your downloaded file?' => '/downloads/key.pem',
+            self::FILE_QUESTION => '/downloads/key.pem',
         ]);
 
         (new Companion($fileSystem, $interaction, new Chained(Application::defaultExtensions())))->fillGaps();
@@ -617,5 +628,78 @@ final class CompanionTest extends TestCase
         }
 
         $this->assertSame(['value' => $dotenvValue, 'runs' => $dotenvRuns], ['value' => $value, 'runs' => $runs]);
+    }
+
+    /**
+     * @dataProvider envLineDataProvider
+     */
+    public function testResolveDistValueReadsTheEnvValuesAboveTheLineItIsWrittenOver(
+        string $env,
+        string $expectedValue
+    ): void {
+        $fileSystem = new InMemoryFileSystem();
+        $fileSystem->write('.env.dist', "KEY_DIR=keys\nKEY_PATH=\${KEY_DIR}/private.pem\n");
+        $fileSystem->write('.env', $env);
+        $companion = new Companion($fileSystem, new InMemoryInteraction(), new Chained());
+        $writtenEnv = false !== strpos($env, "KEY_PATH=\n")
+            ? str_replace("KEY_PATH=\n", "KEY_PATH=\${KEY_DIR}/private.pem\n", $env)
+            : $env . "KEY_PATH=\${KEY_DIR}/private.pem\n";
+
+        $this->assertSame(
+            ['value' => $expectedValue, 'value Dotenv reads once written' => $expectedValue],
+            [
+                'value' => $companion->resolveDistValue(new Variable('KEY_PATH', '${KEY_DIR}/private.pem')),
+                // @: the notice of Dotenv 4.4.0 and 5.0.0 for the undefined ${KEY_DIR}
+                'value Dotenv reads once written' => @(new Dotenv())->parse($writtenEnv)['KEY_PATH'],
+            ]
+        );
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function envLineDataProvider(): array
+    {
+        return [
+            'variable not in .env: appended' => ["KEY_DIR=custom\n", 'custom/private.pem'],
+            'empty line below the variable it refers to' => ["KEY_DIR=custom\nKEY_PATH=\n", 'custom/private.pem'],
+            'empty line above the variable it refers to' => ["KEY_PATH=\nKEY_DIR=custom\n", '/private.pem'],
+        ];
+    }
+
+    public function testGetDefinedVariablesHashParsesEachEnvContentOnce(): void
+    {
+        $log = (string) tempnam(sys_get_temp_dir(), 'companienv-');
+        $fileSystem = new InMemoryFileSystem();
+        $fileSystem->write('.env.dist', "KEY_DIR=keys\nKEY_PATH=\${KEY_DIR}/private.pem\n");
+        $fileSystem->write('.env', "RUN=\"\$(echo x >> {$log})\"\nKEY_DIR=first\n");
+        $companion = new Companion($fileSystem, new InMemoryInteraction(), new Chained());
+        $keyPath = new Variable('KEY_PATH', '${KEY_DIR}/private.pem');
+
+        try {
+            $companion->getDefinedVariablesHash();
+            $before = [$companion->resolveDistValue($keyPath), $companion->getDefinedVariablesHash()];
+            $runsBefore = substr_count((string) file_get_contents($log), 'x');
+            $fileSystem->write('.env', "RUN=\"\$(echo x >> {$log})\"\nKEY_DIR=second\n");
+            $after = [$companion->resolveDistValue($keyPath), $companion->getDefinedVariablesHash()];
+            $runsAfter = substr_count((string) file_get_contents($log), 'x');
+        } finally {
+            unlink($log);
+        }
+
+        $this->assertSame(
+            [
+                'before' => ['first/private.pem', ['RUN' => '', 'KEY_DIR' => 'first']],
+                'runs before' => 1,
+                'after a change' => ['second/private.pem', ['RUN' => '', 'KEY_DIR' => 'second']],
+                'runs after a change' => 2,
+            ],
+            [
+                'before' => $before,
+                'runs before' => $runsBefore,
+                'after a change' => $after,
+                'runs after a change' => $runsAfter,
+            ]
+        );
     }
 }

@@ -2,12 +2,11 @@
 
 namespace Companienv\IO;
 
-use RuntimeException;
-
 class InMemoryInteraction implements Interaction
 {
     /**
-     * A question-answer mapping. A list of answers is served in order, one each time the question is asked.
+     * A question-answer mapping. A list of answers is served in order, one each time the question is asked. A
+     * question with no answer left is answered as without interaction: with its default, if it has one.
      *
      * @var array
      */
@@ -36,14 +35,12 @@ class InMemoryInteraction implements Interaction
             $answer = $this->answers[$normalizedKey] ?? null;
         }
 
+        $answer = $answer ?? $default;
         if (null !== $answer) {
             return $answer;
         }
 
-        throw new RuntimeException(sprintf(
-            'No answer for question "%s"',
-            $normalizedKey
-        ));
+        throw new UnansweredQuestionException($question);
     }
 
     public function writeln($messageOrMessages)

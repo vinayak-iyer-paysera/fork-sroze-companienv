@@ -44,10 +44,27 @@ final class ValueFormatterTest extends TestCase
             'reference value in single quotes' => ["'my site'", false, "'my site'", "'my site'"],
             'reference value Dotenv cannot read' => ['My App', false, 'My App', "'My App'"],
             'reference value ending in an unmatched quote' => ['27"', false, '27"', "'27\"'"],
+            'reference value with a command the shell cannot run' => ['"$(;)"', false, '"$(;)"', '"$(;)"'],
+            'value with a command, other than the reference value' => ['$(;)', false, null, "'$(;)'"],
             'value other than the reference value' => ['dev # local', false, 'dev # dev or prod', "'dev # local'"],
             'forced quotes on a plain value' => ['abc', true, null, "'abc'"],
             'forced quotes on an empty value' => ['', true, null, "''"],
             'forced quotes on an empty reference value' => ['', true, '', "''"],
         ];
+    }
+
+    public function testFormatValueDoesNotRunTheCommandOfTheReferenceValue(): void
+    {
+        $log = (string) tempnam(sys_get_temp_dir(), 'companienv-');
+        $value = "\"\$(echo x >> {$log})\"";
+
+        try {
+            $formattedValue = (new ValueFormatter($value))->formatValue($value);
+            $runs = substr_count((string) file_get_contents($log), 'x');
+        } finally {
+            unlink($log);
+        }
+
+        $this->assertSame(['value' => $value, 'runs' => 0], ['value' => $formattedValue, 'runs' => $runs]);
     }
 }

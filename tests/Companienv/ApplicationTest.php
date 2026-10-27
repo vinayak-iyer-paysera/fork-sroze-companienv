@@ -193,13 +193,21 @@ final class ApplicationTest extends TestCase
             ],
             'rsa-pair whose files exist' => [
                 $rsaPair,
+                [],
                 [
-                    UnansweredQuestionException::class => 'Cannot answer "KEY_PASS: What is the pass phrase of the '
-                        . 'existing keys?" in non-interactive mode: the question has no default.',
-                ],
-                [
-                    '.env' => "KEY_PATH=private.pem\nPUB_PATH=public.pem\n",
+                    '.env' => "KEY_PATH=private.pem\nPUB_PATH=public.pem\nKEY_PASS=\n",
                     '.env.dist' => $rsaPair,
+                    'private.pem' => 'KEY',
+                    'public.pem' => 'KEY',
+                ],
+                ['private.pem' => 'KEY', 'public.pem' => 'KEY'],
+            ],
+            'rsa-pair whose files exist, with a .env.dist pass phrase' => [
+                $rsaPairWithPassPhrase = str_replace('KEY_PASS=', 'KEY_PASS=dev-phrase', $rsaPair),
+                [],
+                [
+                    '.env' => "KEY_PATH=private.pem\nPUB_PATH=public.pem\nKEY_PASS=dev-phrase\n",
+                    '.env.dist' => $rsaPairWithPassPhrase,
                     'private.pem' => 'KEY',
                     'public.pem' => 'KEY',
                 ],

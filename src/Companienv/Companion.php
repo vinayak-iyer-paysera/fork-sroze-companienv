@@ -19,8 +19,10 @@ class Companion
     private $reference;
     private $extension;
     private $envFileName;
+    // Never a read result, so that .env is parsed the first time
+    private $envContents = false;
+    private $definedVariables = [];
     private $resolvedDistValues = [];
-    private $resolvedDistValuesEnv;
 
     public function __construct(FileSystem $fileSystem, Interaction $interaction, Extension $extension, string $envFileName = '.env', string $distFileName = '.env.dist')
     {
@@ -134,19 +136,37 @@ class Companion
 
     public function getDefinedVariablesHash()
     {
-        $variablesInFile = [];
-        if ($this->fileSystem->exists($this->envFileName)) {
-            $dotEnv = new Dotenv();
-            $variablesInFile = $dotEnv->parse($this->fileSystem->getContents($this->envFileName), $this->envFileName);
+        $envContents = $this->fileSystem->exists($this->envFileName)
+            ? $this->fileSystem->getContents($this->envFileName)
+            : null;
+
+        // Parsed, and the .env.dist values resolved, once for each .env content, so that a command in .env or in a
+        // .env.dist path does not run again until .env changes
+        if ($envContents !== $this->envContents) {
+            $this->definedVariables = null === $envContents
+                ? []
+                : (new Dotenv())->parse($envContents, $this->envFileName);
+            $this->resolvedDistValues = [];
+            $this->envContents = $envContents;
         }
 
-        return $variablesInFile;
+        return $this->definedVariables;
+    }
+
+    /**
+     * The path set in .env, or the .env.dist one as Dotenv reads it when .env sets none.
+     */
+    public function getVariablePath(Variable $variable) : string
+    {
+        return (string) (($this->getDefinedVariablesHash()[$variable->getName()] ?? '')
+            ?: $this->resolveDistValue($variable));
     }
 
     /**
      * The .env.dist value as Dotenv will read it in .env, as written when Dotenv cannot read it. A variable it
      * refers to has its .env value or, when .env does not set it, its .env.dist default before it, resolved the
-     * same way. Only those defaults are resolved, so the command of any other one does not run.
+     * same way. When .env already has the variable, the value is written over its line and gets only the .env
+     * values above that line. Only those defaults are resolved, so the command of any other one does not run.
      */
     public function resolveDistValue(Variable $variable) : string
     {
@@ -155,14 +175,8 @@ class Companion
             return (string) ($variable->getDotenvValue() ?? $value);
         }
 
-        // Resolved once for each .env content, so that a command does not run again until .env changes
-        $envContents = $this->fileSystem->exists($this->envFileName)
-            ? $this->fileSystem->getContents($this->envFileName)
-            : null;
-        if ($envContents !== $this->resolvedDistValuesEnv) {
-            $this->resolvedDistValues = [];
-            $this->resolvedDistValuesEnv = $envContents;
-        }
+        // Forgets the resolved values when .env has changed
+        $this->getDefinedVariablesHash();
 
         $key = $variable->getName() . '=' . $value;
         if (!array_key_exists($key, $this->resolvedDistValues)) {
@@ -176,14 +190,24 @@ class Companion
     {
         $value = (string) $variable->getValue();
         $references = $this->getDefinedVariablesHash();
-        foreach ($this->reference->getBlocks() as $block) {
-            foreach ($block->getVariables() as $distVariable) {
-                if ($distVariable->getName() === $variable->getName()) {
-                    break 2;
-                }
+        if (array_key_exists($variable->getName(), $references)) {
+            // Dotenv reads only the lines above, and the .env.dist defaults are appended below
+            $references = array_slice(
+                $references,
+                0,
+                (int) array_search($variable->getName(), array_keys($references), true),
+                true
+            );
+        } else {
+            foreach ($this->reference->getBlocks() as $block) {
+                foreach ($block->getVariables() as $distVariable) {
+                    if ($distVariable->getName() === $variable->getName()) {
+                        break 2;
+                    }
 
-                if (!array_key_exists($distVariable->getName(), $references)) {
-                    $references[$distVariable->getName()] = $distVariable;
+                    if (!array_key_exists($distVariable->getName(), $references)) {
+                        $references[$distVariable->getName()] = $distVariable;
+                    }
                 }
             }
         }
@@ -225,9 +249,10 @@ class Companion
      */
     private function getDotenvLines(array $values) : string
     {
+        $formatter = new ValueFormatter();
         $lines = '';
         foreach ($values as $name => $value) {
-            $lines .= $name . '=' . (new ValueFormatter())->formatValue((string) $value, true) . "\n";
+            $lines .= $name . '=' . $formatter->formatValue((string) $value, true) . "\n";
         }
 
         return $lines;

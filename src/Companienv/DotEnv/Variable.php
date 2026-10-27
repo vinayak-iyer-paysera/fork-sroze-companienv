@@ -2,8 +2,8 @@
 
 namespace Companienv\DotEnv;
 
+use LogicException;
 use Symfony\Component\Dotenv\Dotenv;
-use Symfony\Component\Dotenv\Exception\FormatException;
 
 class Variable
 {
@@ -34,8 +34,10 @@ class Variable
     public function getDotenvValue(string $precedingLines = ''): ?string
     {
         try {
+            // Dotenv 4.4.0 and 5.0.0 raise a notice for an undefined ${VAR}, which Composer turns into an exception
             return @(new Dotenv())->parse($precedingLines . 'VALUE=' . $this->value . "\n")['VALUE'];
-        } catch (FormatException $exception) {
+        } catch (LogicException $exception) {
+            // A FormatException, or a $(…) that Dotenv cannot run, as on Windows
             return null;
         }
     }

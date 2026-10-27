@@ -329,6 +329,41 @@ final class SslCertificateTest extends TestCase
         ];
     }
 
+    public function testExistingCertificateIsKeptWhenAnotherPathIsTypedForOneOfItsFiles(): void
+    {
+        file_put_contents($this->temporaryDirectory . '/key.pem', 'CURRENT KEY');
+        file_put_contents($this->temporaryDirectory . '/certificate.pem', 'CURRENT CERTIFICATE');
+        $interaction = new InMemoryInteraction();
+        $companion = $this->companion($interaction);
+        $extension = new SslCertificate();
+        $block = self::block();
+
+        $values = [];
+        foreach ($block->getVariables() as $variable) {
+            $values[$variable->getName()] = $extension->getVariableValue($companion, $block, $variable);
+            // The answer to the key path, as the other extensions write it
+            file_put_contents($this->temporaryDirectory . '/.env', "CERT_KEY_PATH=elsewhere.pem\n");
+        }
+
+        $this->assertSame(
+            [
+                'values' => ['CERT_KEY_PATH' => null, 'CERT_PATH' => null, 'CERT_DOMAIN' => null],
+                'questions' => '',
+                'files' => [
+                    '.env' => "CERT_KEY_PATH=elsewhere.pem\n",
+                    '.env.dist' => '',
+                    'certificate.pem' => 'CURRENT CERTIFICATE',
+                    'key.pem' => 'CURRENT KEY',
+                ],
+            ],
+            [
+                'values' => $values,
+                'questions' => $interaction->getBuffer(),
+                'files' => $this->readTemporaryDirectory(),
+            ]
+        );
+    }
+
     public function testGeneratedCertificateAtThePathsSetInTheEnvFile(): void
     {
         file_put_contents(

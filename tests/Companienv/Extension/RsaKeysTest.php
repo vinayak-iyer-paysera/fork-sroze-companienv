@@ -24,7 +24,6 @@ final class RsaKeysTest extends TestCase
     private const PASS_PHRASE_QUESTION = 'Enter pass phrase to protect the keys:';
     private const REPEATED_PASS_PHRASE_QUESTION = 'The pass phrase must be 4 to 1023 bytes long. '
         . self::PASS_PHRASE_QUESTION;
-    private const EXISTING_PASS_PHRASE_QUESTION = 'KEY_PASS: What is the pass phrase of the existing keys?';
 
     protected function setUp(): void
     {
@@ -287,7 +286,7 @@ final class RsaKeysTest extends TestCase
         }
         $expectedFiles = ['.env.dist' => ''] + $files;
         ksort($expectedFiles, SORT_STRING);
-        $interaction = new InMemoryInteraction([self::EXISTING_PASS_PHRASE_QUESTION => 'current-phrase']);
+        $interaction = new InMemoryInteraction();
         $companion = $this->companion($interaction);
         $extension = new RsaKeys();
 
@@ -298,8 +297,8 @@ final class RsaKeysTest extends TestCase
 
         $this->assertSame(
             [
-                'values' => ['KEY_PATH' => null, 'PUB_PATH' => null, 'KEY_PASS' => 'current-phrase'],
-                'questions' => self::EXISTING_PASS_PHRASE_QUESTION . "\n",
+                'values' => ['KEY_PATH' => null, 'PUB_PATH' => null, 'KEY_PASS' => null],
+                'questions' => '',
                 'files' => $expectedFiles,
             ],
             [
@@ -382,22 +381,38 @@ final class RsaKeysTest extends TestCase
         );
     }
 
-    public function testExistingKeyPairKeepsThePassPhraseSetInTheEnvFile(): void
+    public function testExistingKeyPairIsKeptWhenAnotherPathIsTypedForOneOfItsFiles(): void
     {
-        file_put_contents($this->temporaryDirectory . '/.env', "KEY_PASS=stored-phrase\n");
         file_put_contents($this->temporaryDirectory . '/private.pem', 'CURRENT PRIVATE KEY');
         file_put_contents($this->temporaryDirectory . '/public.pem', 'CURRENT PUBLIC KEY');
         $interaction = new InMemoryInteraction();
+        $companion = $this->companion($interaction);
+        $extension = new RsaKeys();
+        $block = self::block();
 
-        $value = (new RsaKeys())->getVariableValue(
-            $this->companion($interaction),
-            self::block(),
-            new Variable('KEY_PASS', '')
-        );
+        $values = [];
+        foreach ($block->getVariables() as $variable) {
+            $values[$variable->getName()] = $extension->getVariableValue($companion, $block, $variable);
+            // The answer to the private key path, as the other extensions write it
+            file_put_contents($this->temporaryDirectory . '/.env', "KEY_PATH=elsewhere.pem\n");
+        }
 
         $this->assertSame(
-            ['value' => 'stored-phrase', 'questions' => ''],
-            ['value' => $value, 'questions' => $interaction->getBuffer()]
+            [
+                'values' => ['KEY_PATH' => null, 'PUB_PATH' => null, 'KEY_PASS' => null],
+                'questions' => '',
+                'files' => [
+                    '.env' => "KEY_PATH=elsewhere.pem\n",
+                    '.env.dist' => '',
+                    'private.pem' => 'CURRENT PRIVATE KEY',
+                    'public.pem' => 'CURRENT PUBLIC KEY',
+                ],
+            ],
+            [
+                'values' => $values,
+                'questions' => $interaction->getBuffer(),
+                'files' => $this->readTemporaryDirectory(),
+            ]
         );
     }
 

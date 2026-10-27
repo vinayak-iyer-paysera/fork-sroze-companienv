@@ -6,7 +6,6 @@ use Companienv\Companion;
 use Companienv\DotEnv\Block;
 use Companienv\DotEnv\Variable;
 use Companienv\Extension;
-use Companienv\IO\UnansweredQuestionException;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -21,24 +20,25 @@ class FileToPropagate implements Extension
             return null;
         }
 
-        $currentValue = $companion->getDefinedVariablesHash()[$variable->getName()] ?? null;
         $fileSystem = $companion->getFileSystem();
-        $filename = $this->getFilePath($companion, $variable, $currentValue);
+        $filename = $companion->getVariablePath($variable);
         if ('' === $filename) {
             return null;
         }
 
         // A path set in .env stays; otherwise .env gets the .env.dist one as written
-        $value = $currentValue ?: $variable->getValue();
+        $value = ($companion->getDefinedVariablesHash()[$variable->getName()] ?? null) ?: $variable->getValue();
         if ($fileSystem->exists($filename)) {
             return $value;
         }
 
-        try {
-            $downloadedFilePath = $companion->ask(
-                '<comment>'.$variable->getName().'</comment>: What is the path of your downloaded file? '
-            );
-        } catch (UnansweredQuestionException $exception) {
+        // An empty answer, and a run without interaction, leave the file missing
+        $downloadedFilePath = $companion->ask(
+            '<comment>'.$variable->getName().'</comment>: '
+                .'What is the path of your downloaded file? (leave empty to skip) ',
+            ''
+        );
+        if ('' === $downloadedFilePath) {
             return $value;
         }
 
@@ -69,15 +69,10 @@ class FileToPropagate implements Extension
             return Extension::ABSTAIN;
         }
 
-        $filename = $this->getFilePath($companion, $variable, $currentValue);
+        $filename = $companion->getVariablePath($variable);
 
         return '' === $filename || $companion->getFileSystem()->exists($filename)
              ? Extension::ABSTAIN
              : Extension::VARIABLE_REQUIRED;
-    }
-
-    private function getFilePath(Companion $companion, Variable $variable, ?string $currentValue) : string
-    {
-        return (string) ($currentValue ?: $companion->resolveDistValue($variable));
     }
 }

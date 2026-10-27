@@ -15,8 +15,8 @@ Feature:
     SOMETHING
     """
     When I run the companion with the following answers:
-      | Let's fix this? (y)                                                            | y                      |
-      | GITHUB_INTEGRATION_PRIVATE_KEY_PATH: What is the path of your downloaded file? | /tmp/file-to-propagate |
+      | Let's fix this? (y)                                                                                  | y                      |
+      | GITHUB_INTEGRATION_PRIVATE_KEY_PATH: What is the path of your downloaded file? (leave empty to skip) | /tmp/file-to-propagate |
     And the file ".env" should contain:
     """
     GITHUB_INTEGRATION_PRIVATE_KEY_PATH=/runtime/keys/github.pem

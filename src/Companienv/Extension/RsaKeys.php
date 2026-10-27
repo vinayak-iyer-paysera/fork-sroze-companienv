@@ -31,26 +31,14 @@ class RsaKeys implements Extension
             return $this->populatedVariables[$variable->getName()];
         }
 
-        // Keep an existing pair: its variables are asked like any other, the pass phrase without a default
-        if ($this->filesExist($companion, $block, $attribute)) {
-            if ($variable->getName() !== $attribute->getVariableNames()[2]) {
-                return null;
-            }
-
-            $definedValue = $companion->getDefinedVariablesHash()[$variable->getName()] ?? '';
-
-            return '' !== $definedValue ? $definedValue : $companion->ask(
-                '<comment>'.$variable->getName().'</comment>: What is the pass phrase of the existing keys? '
-            );
-        }
-
-        if (!$companion->askConfirmation(sprintf(
+        // An existing pair is kept, and a declined one not generated, for the whole run: its variables are asked like
+        // any other, so that a path typed for one file does not make the pair look missing
+        if ($this->filesExist($companion, $block, $attribute) || !$companion->askConfirmation(sprintf(
             'Variables %s represents an RSA public/private key. Do you want to automatically generate them? (y) ',
             implode(' and ', array_map(function ($variable) {
                 return '<comment>'.$variable.'</comment>';
             }, $attribute->getVariableNames()))
         ))) {
-            // Ensure we don't ask anymore for this variable pair
             foreach ($attribute->getVariableNames() as $variableName) {
                 $this->populatedVariables[$variableName] = null;
             }
@@ -146,15 +134,12 @@ class RsaKeys implements Extension
     }
 
     /**
-     * @return string[] The paths set in .env, or the .env.dist ones as Dotenv reads them when .env sets none
+     * @return string[]
      */
     private function getPaths(Companion $companion, Block $block, Attribute $attribute) : array
     {
-        $definedVariables = $companion->getDefinedVariablesHash();
-
-        return array_map(function (string $name) use ($companion, $block, $definedVariables) : string {
-            return (string) (($definedVariables[$name] ?? '')
-                ?: $companion->resolveDistValue($block->getVariable($name)));
+        return array_map(function (string $name) use ($companion, $block) : string {
+            return $companion->getVariablePath($block->getVariable($name));
         }, array_slice($attribute->getVariableNames(), 0, 2));
     }
 }
