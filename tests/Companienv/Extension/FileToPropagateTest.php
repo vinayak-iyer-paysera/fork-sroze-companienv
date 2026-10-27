@@ -42,10 +42,11 @@ final class FileToPropagateTest extends TestCase
         array $answers,
         ?string $expectedValue,
         string $expectedQuestions,
-        array $expectedFiles
+        array $expectedFiles,
+        bool $interactive = true
     ): void {
         $fileSystem = $this->fileSystem($files);
-        $interaction = new InMemoryInteraction($answers);
+        $interaction = new InMemoryInteraction($answers, $interactive);
 
         $value = (new FileToPropagate())->getVariableValue(
             new Companion($fileSystem, $interaction, new Chained()),
@@ -74,6 +75,7 @@ final class FileToPropagateTest extends TestCase
      *     3: string|null,
      *     4: string,
      *     5: array<string, string|null>,
+     *     6?: bool,
      * }>
      */
     public static function propagationDataProvider(): array
@@ -127,10 +129,27 @@ final class FileToPropagateTest extends TestCase
                 self::QUESTION . "\n",
                 ['target.pem' => null, 'custom.pem' => null],
             ],
-            'no answer, as without interaction: the file stays missing' => [
+            'without interaction: the file stays missing' => [
                 self::block(),
                 [],
                 [],
+                'target.pem',
+                self::QUESTION . "\n",
+                ['target.pem' => null, 'custom.pem' => null],
+                false,
+            ],
+            'empty in .env, file present at the reference path: the reference path is written' => [
+                self::block(),
+                ['target.pem' => 'CURRENT', '.env' => "KEY_PATH=\n"],
+                [],
+                'target.pem',
+                '',
+                ['target.pem' => 'CURRENT', 'custom.pem' => null],
+            ],
+            'empty in .env, file missing, empty answer: the reference path is written' => [
+                self::block(),
+                ['.env' => "KEY_PATH=\n"],
+                [self::QUESTION => ''],
                 'target.pem',
                 self::QUESTION . "\n",
                 ['target.pem' => null, 'custom.pem' => null],

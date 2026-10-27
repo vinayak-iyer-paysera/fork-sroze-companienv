@@ -20,9 +20,15 @@ final class CompanionTest extends TestCase
      *
      * @param array<string, string> $files
      * @param array<string, string> $answers
+     * @param array<string, string> $expectedFiles
      */
-    public function testFillGaps(array $files, array $answers, ?string $expectedEnv, string $expectedOutput): void
-    {
+    public function testFillGaps(
+        array $files,
+        array $answers,
+        ?string $expectedEnv,
+        string $expectedOutput,
+        array $expectedFiles = []
+    ): void {
         $fileSystem = new InMemoryFileSystem();
         foreach ($files as $path => $contents) {
             $fileSystem->write($path, $contents);
@@ -32,10 +38,13 @@ final class CompanionTest extends TestCase
         (new Companion($fileSystem, $interaction, new Chained(Application::defaultExtensions())))->fillGaps();
 
         $this->assertSame(
-            ['.env' => $expectedEnv, 'output' => $expectedOutput],
+            ['.env' => $expectedEnv, 'output' => $expectedOutput, 'files' => $expectedFiles],
             [
                 '.env' => $fileSystem->exists('.env') ? $fileSystem->getContents('.env') : null,
                 'output' => $interaction->getBuffer(),
+                'files' => array_map(function (string $path) use ($fileSystem) {
+                    return $fileSystem->getContents($path);
+                }, array_combine(array_keys($expectedFiles), array_keys($expectedFiles))),
             ]
         );
     }
@@ -322,6 +331,7 @@ final class CompanionTest extends TestCase
                 ],
                 "KEY_PATH=target.pem\n",
                 $missingOne . "\n<info>Keys</info>\n\n" . self::FILE_QUESTION . "\n",
+                ['target.pem' => 'DOWNLOADED'],
             ],
             'file to propagate at the path set in .env: nothing is asked' => [
                 [
@@ -345,6 +355,7 @@ final class CompanionTest extends TestCase
                 ],
                 "KEY_PATH=custom.pem # from the vault\n",
                 $missingOne . "\n<info>Keys</info>\n\n" . self::FILE_QUESTION . "\n",
+                ['custom.pem' => 'DOWNLOADED'],
             ],
             'file to propagate present at the path its .env.dist default names' => [
                 [
@@ -366,6 +377,7 @@ final class CompanionTest extends TestCase
                 ],
                 "KEY_PATH=target.pem # the deploy key\n",
                 $missingOne . "\n<info>Keys</info>\n\n" . self::FILE_QUESTION . "\n",
+                ['target.pem' => 'DOWNLOADED'],
             ],
             'file to propagate without a path: the variable is asked like any other' => [
                 ['.env.dist' => "## Keys\n#+file-to-propagate(KEY_PATH)\nKEY_PATH=\n"],

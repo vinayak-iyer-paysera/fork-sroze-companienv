@@ -2,21 +2,29 @@
 
 namespace Companienv\IO;
 
+use RuntimeException;
+
 class InMemoryInteraction implements Interaction
 {
     /**
-     * A question-answer mapping. A list of answers is served in order, one each time the question is asked. A
-     * question with no answer left is answered as without interaction: with its default, if it has one.
+     * A question-answer mapping. A list of answers is served in order, one each time the question is asked.
      *
      * @var array
      */
     private $answers;
 
+    private $interactive;
+
     private $buffer = '';
 
-    public function __construct(array $answers = [])
+    /**
+     * Without interaction, a question with no answer left gets its default, as in the real interactions; with
+     * interaction, it fails, so that a test notices a question it did not expect.
+     */
+    public function __construct(array $answers = [], bool $interactive = true)
     {
         $this->answers = $answers;
+        $this->interactive = $interactive;
     }
 
     public function askConfirmation(string $question): bool
@@ -35,9 +43,19 @@ class InMemoryInteraction implements Interaction
             $answer = $this->answers[$normalizedKey] ?? null;
         }
 
-        $answer = $answer ?? $default;
         if (null !== $answer) {
             return $answer;
+        }
+
+        if ($this->interactive) {
+            throw new RuntimeException(sprintf(
+                'No answer for question "%s"',
+                $normalizedKey
+            ));
+        }
+
+        if (null !== $default) {
+            return $default;
         }
 
         throw new UnansweredQuestionException($question);
